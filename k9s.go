@@ -18,7 +18,12 @@ func Install() error {
 		}
 	}
 
-	dir, err := getPluginDirectory()
+	output, err := run("k9s", "info")
+	if err != nil {
+		return fmt.Errorf("failed to get k9s info: %w", err)
+	}
+
+	dir, err := getPluginDirectory(output)
 	if err != nil {
 		return fmt.Errorf("failed to get plugin directory: %w", err)
 	}
@@ -48,16 +53,11 @@ func run(command string, arg ...string) ([]byte, error) {
 	return output, nil
 }
 
-func getPluginDirectory() (string, error) {
-	output, err := run("k9s", "info")
-	if err != nil {
-		return "", fmt.Errorf("failed to get k9s info: %w", err)
-	}
-
-	scanner := bufio.NewScanner(bytes.NewReader(output))
+func getPluginDirectory(input []byte) (string, error) {
+	scanner := bufio.NewScanner(bytes.NewReader(input))
 	for scanner.Scan() {
 		if strings.Contains(scanner.Text(), "Plugins") {
-			return scanner.Text(), nil
+			return strings.ReplaceAll(strings.Join(strings.Fields(scanner.Text())[1:], " "), " ", "\\ "), nil
 		}
 	}
 
