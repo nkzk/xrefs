@@ -27,4 +27,5 @@ require (
 require (
 	github.com/charmbracelet/bubbletea v1.3.10
 	golang.org/x/sys v0.36.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1
 )
