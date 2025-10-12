@@ -1,25 +1,49 @@
 package main
 
+import (
+	"fmt"
+	"log"
+
+	"gopkg.in/yaml.v3"
+)
+
+type resourceRef struct {
+	ApiVersion string `json:"apiVersion" yaml:"apiversion"`
+	Kind       string `json:"kind" yaml:"kind"`
+	Name       string `json:"name" yaml:"name"`
+}
+
+type XR struct {
+	Spec struct {
+		Crossplane struct {
+			ResourceRefs []resourceRef `json:"resourceRefs" yaml:"resourceRefs"`
+		} `json:"crossplane" yaml:"crossplane"`
+	} `json:"spec" yaml:"spec"`
+}
+
+func getResourceRefs(yamlString string) ([]resourceRef, error) {
+	xr := &XR{}
+	err := yaml.Unmarshal([]byte(yamlString), xr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal xr: %w", err)
+	}
+
+	var result []resourceRef
+	for _, resourceRef := range xr.Spec.Crossplane.ResourceRefs {
+		result = append(result, resourceRef)
+	}
+
+	return result, nil
+}
+
 func main() {
-	Run()
-	// err := Install()
-	// if err != nil {
-	// 	log.Fatalf("failed to install plugin: %v", err)
-	// }
+	m := mock{}
+	xrd := m.GetXRD()
 
-	// ctx, cancel := context.WithCancel(context.Background())
-	// defer cancel()
+	refs, err := getResourceRefs(xrd)
+	if err != nil {
+		log.Fatalf("failed to load xr: %v", err)
+	}
 
-	// quit := ListenForQuit(ctx)
-
-	// ticker := time.NewTicker(3 * time.Second)
-	// for {
-	// 	select {
-	// 	case <-quit:
-	// 		fmt.Printf("cya!\r\n")
-	// 		return
-	// 	case <-ticker.C:
-	// 		fmt.Println("hi")
-	// 	}
-	// }
+	fmt.Printf("%+v\n", refs)
 }
