@@ -91,6 +91,6 @@ status:
 		"\n")
 }
 
-func (m mock) Get(kind, apiversion, name, namespace string) {
-	return
+func (m mock) Get(kind, apiversion, name, namespace string) string {
+	return ""
 }
