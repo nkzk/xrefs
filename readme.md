@@ -29,3 +29,10 @@ Allows me to not rely on kubernetes during development, and lets me quickly lay 
 
 
 ### k9s install
+
+
+
+### Useful links
+
+- https://leg100.github.io/en/posts/building-bubbletea-programs/
+- https://github.com/charmbracelet/bubbletea/discussions/1316
