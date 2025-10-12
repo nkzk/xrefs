@@ -1,13 +1,11 @@
 package main
 
-import "log"
-
 func main() {
-
-	err := Install()
-	if err != nil {
-		log.Fatalf("failed to install plugin: %v", err)
-	}
+	Run()
+	// err := Install()
+	// if err != nil {
+	// 	log.Fatalf("failed to install plugin: %v", err)
+	// }
 
 	// ctx, cancel := context.WithCancel(context.Background())
 	// defer cancel()
