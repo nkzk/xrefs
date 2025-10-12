@@ -5,11 +5,14 @@ import (
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"gopkg.in/yaml.v3"
 )
 
+var docStyle = lipgloss.NewStyle().Margin(1, 2)
+
 type resourceRef struct {
-	ApiVersion string `json:"apiVersion" yaml:"apiversion"`
+	ApiVersion string `json:"apiVersion" yaml:"apiVersion"`
 	Kind       string `json:"kind" yaml:"kind"`
 	Name       string `json:"name" yaml:"name"`
 }
@@ -48,7 +51,7 @@ func getRows(yamlString string) ([]row, error) {
 }
 
 func main() {
-	if _, err := tea.NewProgram(model{}).Run(); err != nil {
+	if _, err := tea.NewProgram(newModel(), tea.WithAltScreen()).Run(); err != nil {
 		fmt.Printf("failed to start: %v", err)
 		os.Exit(1)
 	}
