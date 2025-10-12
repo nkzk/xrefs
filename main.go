@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
-	"log"
+	"os"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"gopkg.in/yaml.v3"
 )
 
@@ -14,6 +15,9 @@ type resourceRef struct {
 }
 
 type XR struct {
+	Metadata struct {
+		Namespace string `json:"namespace" yaml:"namespace"`
+	} `json:"metadata" yaml:"metadata"`
 	Spec struct {
 		Crossplane struct {
 			ResourceRefs []resourceRef `json:"resourceRefs" yaml:"resourceRefs"`
@@ -21,29 +25,31 @@ type XR struct {
 	} `json:"spec" yaml:"spec"`
 }
 
-func getResourceRefs(yamlString string) ([]resourceRef, error) {
+func getRows(yamlString string) ([]row, error) {
 	xr := &XR{}
 	err := yaml.Unmarshal([]byte(yamlString), xr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal xr: %w", err)
 	}
 
-	var result []resourceRef
+	var result []row
 	for _, resourceRef := range xr.Spec.Crossplane.ResourceRefs {
-		result = append(result, resourceRef)
+		result = append(result, row{
+			namespace:  xr.Metadata.Namespace,
+			kind:       resourceRef.Kind,
+			apiVersion: resourceRef.ApiVersion,
+			name:       resourceRef.Name,
+			synced:     "True",
+			ready:      "True",
+		})
 	}
 
 	return result, nil
 }
 
 func main() {
-	m := mock{}
-	xrd := m.GetXRD()
-
-	refs, err := getResourceRefs(xrd)
-	if err != nil {
-		log.Fatalf("failed to load xr: %v", err)
+	if _, err := tea.NewProgram(model{}).Run(); err != nil {
+		fmt.Printf("failed to start: %v", err)
+		os.Exit(1)
 	}
-
-	fmt.Printf("%+v\n", refs)
 }

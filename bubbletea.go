@@ -8,7 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-type model struct {
+type model1 struct {
 	choices  []string
 	cursor   int
 	selected map[int]struct{}
@@ -19,11 +19,11 @@ type model2 struct {
 	err    error
 }
 
-var _ tea.Model = &model{}
+var _ tea.Model = &model1{}
 var _ tea.Model = &model2{}
 
-func initialModel() model {
-	return model{
+func initialModel() model1 {
+	return model1{
 		choices: []string{
 			"1",
 			"2",
@@ -34,15 +34,16 @@ func initialModel() model {
 }
 
 type statusMsg int
-type errMsg struct{ err error }
+
+// type errMsg struct{ err error }
 
 func checkServer() tea.Msg {
 	return statusMsg(200)
 }
 
-func (e errMsg) Error() string { return e.err.Error() }
+// func (e errMsg) Error() string { return e.err.Error() }
 
-func (m model) Init() tea.Cmd {
+func (m model1) Init() tea.Cmd {
 	return nil
 }
 
@@ -81,7 +82,7 @@ func (m model2) View() string {
 	return "\n" + s + "\n\n"
 }
 
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m model1) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -109,7 +110,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m model) View() string {
+func (m model1) View() string {
 	s := "What should we do\n"
 
 	for i, choice := range m.choices {
@@ -133,7 +134,7 @@ func (m model) View() string {
 
 func Run() {
 	if _, err := tea.NewProgram(model2{}).Run(); err != nil {
-		fmt.Printf("failed to start TUI: %w", err)
+		fmt.Printf("failed to start TUI: %v", err)
 		os.Exit(1)
 	}
 }
