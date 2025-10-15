@@ -78,7 +78,7 @@ func getRefs(yamlString string) tea.Cmd {
 	}
 }
 
-const refreshInterval = 6 * time.Second
+const refreshInterval = 1 * time.Second
 
 type tickMsg time.Time
 
@@ -145,16 +145,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			tick(),
 		)
 	case []row:
-		if len(msg) == 0 {
-			return m, nil
-		}
-		rows := make([][]string, 0, len(msg))
-		for _, r := range msg {
-			rows = append(rows, toStringRow(r))
-		}
-
-		m.rows = rows
-		m.table.Rows(rows...)
+		m.applyData(msg)
 	case tea.WindowSizeMsg:
 		if m.table != nil {
 			m.table = m.table.Width(msg.Width).Height(msg.Height)
@@ -203,9 +194,11 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *model) View() string {
 	s := "\n"
+
 	if m.err != nil {
 		return "could not render view cause of error:\n" + m.err.Error()
 	}
+
 	if m.table == nil {
 		return "\nloading…\n"
 	}
@@ -217,4 +210,22 @@ func (m *model) View() string {
 		s += m.table.String() + "\n"
 	}
 	return s
+}
+
+func (m *model) applyData(newRows []row) {
+	if len(newRows) == 0 {
+		return
+	}
+
+	// just reset for now
+	m.table.ClearRows()
+	m.rows = [][]string{}
+
+	rows := make([][]string, 0, len(newRows))
+	for _, r := range newRows {
+		rows = append(rows, toStringRow(r))
+	}
+
+	m.rows = rows
+	m.table.Rows(rows...)
 }
