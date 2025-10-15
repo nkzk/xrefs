@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"time"
 
 	viewport "github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -77,9 +78,21 @@ func getRefs(yamlString string) tea.Cmd {
 	}
 }
 
+const refreshInterval = 6 * time.Second
+
+type tickMsg time.Time
+
+func tick() tea.Cmd {
+	return tea.Tick(refreshInterval, func(t time.Time) tea.Msg {
+		return tickMsg(t)
+	})
+}
+
 func (m *model) Init() tea.Cmd {
-	mock := mock{}
-	return getRefs(mock.GetXRD())
+	return tea.Batch(
+		getRefs(m.client.GetXRD()),
+		tick(),
+	)
 }
 
 func headersFromRow(r row) []string {
@@ -123,10 +136,14 @@ func toRow(s []string) (row, error) {
 
 	return r, nil
 }
-
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
+	case tickMsg:
+		return m, tea.Batch(
+			getRefs(m.client.GetXRD()),
+			tick(),
+		)
 	case []row:
 		if len(msg) == 0 {
 			return m, nil
