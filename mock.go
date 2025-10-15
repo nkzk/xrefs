@@ -1,8 +1,16 @@
 package main
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 type mock struct{}
+
+type Client interface {
+	GetXRD() string
+	Get(kind, apiversion, name, namespace string) string
+}
 
 func (m mock) GetXRD() string {
 	return strings.TrimPrefix(`
@@ -92,5 +100,5 @@ status:
 }
 
 func (m mock) Get(kind, apiversion, name, namespace string) string {
-	return ""
+	return fmt.Sprintf("ayo %s", name)
 }
