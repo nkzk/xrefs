@@ -1,4 +1,4 @@
-package main
+package k9s
 
 import (
 	"bufio"
