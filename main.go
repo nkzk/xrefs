@@ -51,7 +51,7 @@ func getRows(yamlString string) ([]row, error) {
 }
 
 func main() {
-	if _, err := tea.NewProgram(newModel(), tea.WithAltScreen()).Run(); err != nil {
+	if _, err := tea.NewProgram(NewModel(), tea.WithAltScreen()).Run(); err != nil {
 		fmt.Printf("failed to start: %v", err)
 		os.Exit(1)
 	}

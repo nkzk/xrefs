@@ -11,15 +11,6 @@ import (
 	"github.com/charmbracelet/lipgloss/table"
 )
 
-type row struct {
-	Namespace  string
-	Kind       string
-	ApiVersion string
-	Name       string
-	Synced     string
-	Ready      string
-}
-
 type model struct {
 	table        *table.Table
 	rows         [][]string
@@ -30,27 +21,25 @@ type model struct {
 	showViewport bool
 }
 
-func newModel() *model {
+type row struct {
+	Namespace  string
+	Kind       string
+	ApiVersion string
+	Name       string
+	Synced     string
+	Ready      string
+}
+
+func NewModel() *model {
 	r := row{}
 	headers := headersFromRow(r)
 	rows := [][]string{}
 
 	re := lipgloss.NewRenderer(os.Stdout)
 
-	// base
 	baseStyle := re.NewStyle().Padding(0, 1)
 
-	// selected
 	selectedStyle := baseStyle.Foreground(lipgloss.Color("#01BE85")).Background(lipgloss.Color("#00E2C7"))
-
-	// header
-	// headerStyle := baseStyle.Foreground(lipgloss.Color("252")).Bold(true)
-
-	// colors
-	// colors := map[bool]lipgloss.Color{
-	// 	true:  lipgloss.Color("#FDFF90"),
-	// 	false: lipgloss.Color("#75FBAB"),
-	// }
 
 	m := &model{
 		viewport: viewport.New(0, 0),
