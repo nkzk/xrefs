@@ -78,7 +78,7 @@ func getRefs(yamlString string) tea.Cmd {
 	}
 }
 
-const refreshInterval = 1 * time.Second
+const refreshInterval = 7 * time.Second
 
 type tickMsg time.Time
 
