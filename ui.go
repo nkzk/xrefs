@@ -19,11 +19,13 @@ type row struct {
 }
 
 type model struct {
-	table *table.Table
-	err   error
+	table  *table.Table
+	rows   [][]string
+	cursor int
+	err    error
 }
 
-func newModel() model {
+func newModel() *model {
 	r := row{}
 	headers := headersFromRow(r)
 	rows := [][]string{}
@@ -33,11 +35,11 @@ func newModel() model {
 	// base
 	baseStyle := re.NewStyle().Padding(0, 1)
 
-	// header
-	headerStyle := baseStyle.Foreground(lipgloss.Color("252")).Bold(true)
-
 	// selected
-	// selectedStyle := baseStyle.Foreground(lipgloss.Color("#01BE85")).Background(lipgloss.Color("#00E2C7"))
+	selectedStyle := baseStyle.Foreground(lipgloss.Color("#01BE85")).Background(lipgloss.Color("#00E2C7"))
+
+	// header
+	// headerStyle := baseStyle.Foreground(lipgloss.Color("252")).Bold(true)
 
 	// colors
 	// colors := map[bool]lipgloss.Color{
@@ -45,22 +47,23 @@ func newModel() model {
 	// 	false: lipgloss.Color("#75FBAB"),
 	// }
 
+	m := &model{}
 	t := table.New().
 		Headers(headers...).
 		Rows(rows...).
 		Border(lipgloss.NormalBorder()).
 		BorderStyle(re.NewStyle().Foreground(lipgloss.Color("238"))).
 		StyleFunc(func(row, col int) lipgloss.Style {
-			if row == 0 {
-				return headerStyle
+			if row == m.cursor {
+				return selectedStyle
 			}
+
 			return baseStyle
 		}).
 		Border(lipgloss.ThickBorder())
 
-	return model{
-		table: t,
-	}
+	m.table = t
+	return m
 }
 
 type errMsg struct{ err error }
@@ -77,7 +80,7 @@ func getRefs(yamlString string) tea.Cmd {
 	}
 }
 
-func (m model) Init() tea.Cmd {
+func (m *model) Init() tea.Cmd {
 	mock := mock{}
 	return getRefs(mock.GetXRD())
 }
@@ -96,7 +99,7 @@ func toStringRow(r row) []string {
 	return []string{r.namespace, r.kind, r.apiVersion, r.name, r.synced, r.ready}
 }
 
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case []row:
 		if len(msg) == 0 {
@@ -106,6 +109,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		for _, r := range msg {
 			rows = append(rows, toStringRow(r))
 		}
+
+		m.rows = rows
 		m.table.Rows(rows...)
 	case tea.WindowSizeMsg:
 		if m.table != nil {
@@ -117,6 +122,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "q", "ctrl+c":
 			return m, tea.Quit
 		case "enter":
+			// do something
+		case "up", "k":
+			if m.cursor > 0 {
+				m.cursor--
+			}
+		case "down", "j":
+			if m.cursor < len(m.rows)-1 {
+				m.cursor++
+			}
 		}
 
 	case errMsg:
@@ -126,7 +140,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m model) View() string {
+func (m *model) View() string {
 	if m.table == nil {
 		return "\nloading…\n"
 	}
