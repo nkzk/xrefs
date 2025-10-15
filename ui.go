@@ -1,28 +1,33 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"reflect"
 
+	viewport "github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/lipgloss/table"
 )
 
 type row struct {
-	namespace  string
-	kind       string
-	apiVersion string
-	name       string
-	synced     string
-	ready      string
+	Namespace  string
+	Kind       string
+	ApiVersion string
+	Name       string
+	Synced     string
+	Ready      string
 }
 
 type model struct {
-	table  *table.Table
-	rows   [][]string
-	cursor int
-	err    error
+	table        *table.Table
+	rows         [][]string
+	cursor       int
+	err          error
+	client       Client
+	viewport     viewport.Model
+	showViewport bool
 }
 
 func newModel() *model {
@@ -47,7 +52,10 @@ func newModel() *model {
 	// 	false: lipgloss.Color("#75FBAB"),
 	// }
 
-	m := &model{}
+	m := &model{
+		viewport: viewport.New(0, 0),
+		client:   mock{},
+	}
 	t := table.New().
 		Headers(headers...).
 		Rows(rows...).
@@ -96,10 +104,39 @@ func headersFromRow(r row) []string {
 }
 
 func toStringRow(r row) []string {
-	return []string{r.namespace, r.kind, r.apiVersion, r.name, r.synced, r.ready}
+	return []string{r.Namespace, r.Kind, r.ApiVersion, r.Name, r.Synced, r.Ready}
+}
+
+func toRow(s []string) (row, error) {
+	var r row
+	v := reflect.ValueOf(r)
+
+	if len(s) != v.NumField() {
+		return row{}, fmt.Errorf("row has %d fields but only %d is allowed", len(s), v.NumField())
+	}
+
+	rv := reflect.ValueOf(&r).Elem()
+	for i := 0; i < rv.NumField(); i++ {
+		v.Type().Field(i)
+		f := rv.Field(i)
+		sf := v.Field(i)
+
+		if !f.CanSet() {
+			return row{}, fmt.Errorf("field %q cannot be set (make it exported)", sf.Type().Name())
+		}
+
+		if f.Kind() != reflect.String {
+			return row{}, fmt.Errorf("field %q is %s, need string", sf.Type().Name, f.Kind())
+		}
+
+		f.SetString(s[i])
+	}
+
+	return r, nil
 }
 
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+
 	switch msg := msg.(type) {
 	case []row:
 		if len(msg) == 0 {
@@ -116,13 +153,27 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.table != nil {
 			m.table = m.table.Width(msg.Width).Height(msg.Height)
 		}
-
+		m.viewport.Width = msg.Width
+		m.viewport.Height = msg.Height
 	case tea.KeyMsg:
 		switch msg.String() {
+		case "esc", "backspace":
+			m.showViewport = false
 		case "q", "ctrl+c":
 			return m, tea.Quit
+
 		case "enter":
-			// do something
+			r := m.rows[m.cursor]
+			row, err := toRow(r)
+			if err != nil {
+				m.err = fmt.Errorf("failed to convert row string to row: %w", err)
+			}
+
+			result := m.client.Get(row.Kind, row.ApiVersion, row.Name, row.Namespace)
+
+			m.viewport.SetContent(result)
+
+			m.showViewport = true
 		case "up", "k":
 			if m.cursor > 0 {
 				m.cursor--
@@ -133,6 +184,10 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
+		var cmd tea.Cmd
+		m.viewport, cmd = m.viewport.Update(msg)
+		return m, cmd
+
 	case errMsg:
 		m.err = msg
 		return m, tea.Quit
@@ -141,8 +196,19 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *model) View() string {
+	s := "\n"
+	if m.err != nil {
+		return "could not render view cause of error:\n" + m.err.Error()
+	}
 	if m.table == nil {
 		return "\nloading…\n"
 	}
-	return "\n" + m.table.String() + "\n"
+
+	if m.showViewport {
+		s += m.viewport.View()
+
+	} else {
+		s += m.table.String() + "\n"
+	}
+	return s
 }
