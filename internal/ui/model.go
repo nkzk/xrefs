@@ -49,7 +49,7 @@ func NewModel() *Model {
 
 func (m *Model) Init() tea.Cmd {
 	return tea.Batch(
-		getRefs(m.client.GetXRD()),
+		getRefs(m.client.GetXRD(//TODO)),
 		tick(),
 	)
 }

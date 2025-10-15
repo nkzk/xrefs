@@ -8,6 +8,8 @@ import (
 	"log"
 	"os/exec"
 	"strings"
+
+	"github.com/nkzk/xtree/internal/utils"
 )
 
 func Install() error {
@@ -18,7 +20,7 @@ func Install() error {
 		}
 	}
 
-	output, err := run("k9s", "info")
+	output, err := utils.RunCommand("k9s", "info")
 	if err != nil {
 		return fmt.Errorf("failed to get k9s info: %w", err)
 	}
@@ -40,17 +42,6 @@ func installed(s string) bool {
 		return false
 	}
 	return true
-}
-
-func run(command string, arg ...string) ([]byte, error) {
-	cmd := exec.Command(command, arg...)
-
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get command output: %w", err)
-	}
-
-	return output, nil
 }
 
 func getPluginDirectory(input []byte) (string, error) {

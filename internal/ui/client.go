@@ -3,16 +3,28 @@ package ui
 import (
 	"fmt"
 	"strings"
+
+	"github.com/nkzk/xtree/internal/utils"
 )
 
-type mock struct{}
-
 type Client interface {
-	GetXRD() string
+	GetXR() string
 	Get(kind, apiversion, name, namespace string) string
 }
 
-func (m mock) GetXRD() string {
+type mock struct{}
+
+type kubectl struct{}
+
+func (k kubectl) GetXR(kind, apiversion, name, namespace string) (string, error) {
+	output, err := utils.RunCommand("kubectl", "get", apiversion+"/"+name, "-n", namespace, "-o", "yaml")
+	if err != nil {
+		return "", fmt.Errorf("failed to get XR: %w", err)
+	}
+	return string(output), err
+}
+
+func (m mock) GetXR(kind, apiversion, name, namespace string) (string, error) {
 	return strings.TrimPrefix(`
 apiVersion: group.domain.com/v1alpha1
 kind: Auth
@@ -96,7 +108,7 @@ status:
   principalObjectId: x
   tenantId: x
 `,
-		"\n")
+		"\n"), nil
 }
 
 func (m mock) Get(kind, apiversion, name, namespace string) string {
