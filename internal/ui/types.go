@@ -19,12 +19,14 @@ type Model struct {
 }
 
 type row struct {
-	Namespace  string
-	Kind       string
-	ApiVersion string
-	Name       string
-	Synced     string
-	Ready      string
+	Namespace    string
+	Kind         string
+	ApiVersion   string
+	Name         string
+	Synced       string
+	SyncedReason string
+	Ready        string
+	ReadyReason  string
 }
 
 func headersFromRow(r row) []string {
@@ -38,7 +40,7 @@ func headersFromRow(r row) []string {
 }
 
 func toStringRow(r row) []string {
-	return []string{r.Namespace, r.Kind, r.ApiVersion, r.Name, r.Synced, r.Ready}
+	return []string{r.Namespace, r.Kind, r.ApiVersion, r.Name, r.Synced, r.SyncedReason, r.Ready, r.ReadyReason}
 }
 
 func toRow(s []string) (row, error) {

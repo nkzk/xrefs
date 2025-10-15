@@ -164,12 +164,14 @@ func getRows(yamlString string) ([]row, error) {
 	var result []row
 	for _, resourceRef := range xr.Spec.Crossplane.ResourceRefs {
 		result = append(result, row{
-			Namespace:  xr.Metadata.Namespace,
-			Kind:       resourceRef.Kind,
-			ApiVersion: resourceRef.ApiVersion,
-			Name:       resourceRef.Name,
-			Synced:     "True",
-			Ready:      "True",
+			Namespace:    xr.Metadata.Namespace,
+			Kind:         resourceRef.Kind,
+			ApiVersion:   resourceRef.ApiVersion,
+			Name:         resourceRef.Name,
+			Synced:       "True",
+			SyncedReason: "Yes",
+			Ready:        "True",
+			ReadyReason:  "Yes",
 		})
 	}
 
