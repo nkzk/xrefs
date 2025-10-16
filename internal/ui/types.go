@@ -6,9 +6,11 @@ import (
 
 	viewport "github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss/table"
+	"github.com/nkzk/xtree/internal/config"
 )
 
 type Model struct {
+	config       config.Config
 	table        *table.Table
 	rows         [][]string
 	cursor       int
@@ -62,7 +64,7 @@ func toRow(s []string) (row, error) {
 		}
 
 		if f.Kind() != reflect.String {
-			return row{}, fmt.Errorf("field %q is %s, need string", sf.Type().Name, f.Kind())
+			return row{}, fmt.Errorf("field %q is %s, need string", sf.Type().Name(), f.Kind())
 		}
 
 		f.SetString(s[i])

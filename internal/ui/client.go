@@ -8,13 +8,18 @@ import (
 )
 
 type Client interface {
-	GetXR() string
+	GetXR(kind, apiversion, name, namespace string) (string, error)
+
 	Get(kind, apiversion, name, namespace string) string
 }
 
 type mock struct{}
 
 type kubectl struct{}
+
+func NewKubectlClient() *kubectl {
+	return &kubectl{}
+}
 
 func (k kubectl) GetXR(kind, apiversion, name, namespace string) (string, error) {
 	output, err := utils.RunCommand("kubectl", "get", apiversion+"/"+name, "-n", namespace, "-o", "yaml")
@@ -113,4 +118,13 @@ status:
 
 func (m mock) Get(kind, apiversion, name, namespace string) string {
 	return fmt.Sprintf("ayo %s", name)
+}
+
+func (k kubectl) Get(kind, apiversion, name, namespace string) string {
+	output, err := utils.RunCommand("kubectl", "get", apiversion+"/"+name, "-n", namespace, "-o", "yaml")
+	if err != nil {
+		return fmt.Sprintf("failed to get resource: %v", err)
+	}
+
+	return string(output)
 }
