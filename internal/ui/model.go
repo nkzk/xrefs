@@ -9,6 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/lipgloss/table"
+	"github.com/nkzk/xtree/internal/config"
 	"gopkg.in/yaml.v3"
 )
 
@@ -16,7 +17,7 @@ type errMsg struct{ err error }
 
 func (e errMsg) Error() string { return e.err.Error() }
 
-func NewModel() *Model {
+func NewModel(client Client, config config.Config) *Model {
 	r := row{}
 	headers := headersFromRow(r)
 	rows := [][]string{}
@@ -27,7 +28,7 @@ func NewModel() *Model {
 
 	m := &Model{
 		viewport: viewport.New(0, 0),
-		client:   mock{},
+		client:   client,
 	}
 
 	t := table.New().
@@ -49,7 +50,6 @@ func NewModel() *Model {
 
 func (m *Model) Init() tea.Cmd {
 	return tea.Batch(
-		getRefs(m.client.GetXRD(//TODO)),
 		tick(),
 	)
 }
@@ -67,8 +67,15 @@ func tick() tea.Cmd {
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tickMsg:
+		xr, err := m.client.GetXR(m.config.ResourceName, m.config.ResourceVersion, m.config.Name, m.config.Namespace)
+		if err != nil {
+			return m, func() tea.Msg {
+				return errMsg{err: fmt.Errorf("failed to get XR, %w", err)}
+			}
+		}
+
 		return m, tea.Batch(
-			getRefs(m.client.GetXRD()),
+			extractResourceRefs(xr),
 			tick(),
 		)
 
@@ -90,10 +97,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case "enter":
 			r := m.rows[m.cursor]
+
 			row, err := toRow(r)
 			if err != nil {
 				m.err = fmt.Errorf("failed to convert row string to row: %w", err)
 			}
+
 			result := m.client.Get(row.Kind, row.ApiVersion, row.Name, row.Namespace)
 			m.viewport.SetContent(result)
 			m.showViewport = true
@@ -178,7 +187,7 @@ func getRows(yamlString string) ([]row, error) {
 	return result, nil
 }
 
-func getRefs(yamlString string) tea.Cmd {
+func extractResourceRefs(yamlString string) tea.Cmd {
 	return func() tea.Msg {
 		refs, err := getRows(yamlString)
 		if err != nil {
