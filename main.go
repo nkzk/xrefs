@@ -20,13 +20,12 @@ func main() {
 	flag.StringVar(&shortcut, "shortcut", "Shift-G", "Shortcut for the plugin (e.g. x, Shift-G, Ctrl-G)")
 	flag.Parse()
 
-	k9s.Install("Shift-G")
-
 	if install {
 		if err := k9s.Install(shortcut); err != nil {
 			fmt.Fprintf(os.Stderr, "install failed: %v\n", err)
 			os.Exit(1)
 		}
+
 		fmt.Println("plugin installed")
 		return
 	}

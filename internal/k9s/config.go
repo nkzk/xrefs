@@ -1,10 +1,15 @@
 package k9s
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -21,6 +26,48 @@ type Plugin struct {
 	Command     string
 	Background  bool
 	Scopes      []string
+}
+
+func config(pluginKey, shortCut, command string) string {
+	s := fmt.Sprintf(`
+%s:
+  shortCut: %s
+  description: Show XR resourceRefs
+  command: %s
+  scopes:
+  - "all"
+  background: false
+`, pluginKey, shortCut, command)
+
+	return strings.TrimPrefix(s, "\n")
+}
+
+func CreatePluginFile(dstPath, pluginKey, shortCut, command string) error {
+	if pluginKey == "" {
+		return errors.New("plugin name cannot be empty")
+	}
+	if shortCut == "" {
+		return errors.New("shortcut cannot be empty")
+	}
+	if command == "" {
+		return errors.New("command cannot be empty")
+	}
+
+	if info, err := os.Stat(dstPath); err == nil {
+		if info.Size() > 0 {
+			return fmt.Errorf("%s already exists and is not empty; use append instead", dstPath)
+		}
+	} else if !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+
+	if err := os.MkdirAll(filepath.Dir(dstPath), 0o755); err != nil {
+		return err
+	}
+
+	content := config(pluginKey, shortCut, command)
+
+	return os.WriteFile(dstPath, []byte(content), 0o600)
 }
 
 func backupFile(path string) error {
@@ -44,50 +91,95 @@ func backupFile(path string) error {
 		return err
 	}
 
+	fmt.Printf("backed up old k9s config to %s\n", dstPath)
+
 	return nil
 }
 
 func appendPlugin(doc []byte, key, shortcut, cmd, desc string, background bool, scopes []string) ([]byte, error) {
+	if key == "" {
+		return nil, fmt.Errorf("plugin name (key) cannot be empty")
+	}
+
 	var root yaml.Node
-	if err := yaml.Unmarshal(doc, &root); err != nil {
-		return nil, err
+	// If the file is empty or bad YAML, start a fresh doc: { plugins: {} }
+	if len(bytes.TrimSpace(doc)) == 0 || yaml.Unmarshal(doc, &root) != nil {
+		root = yaml.Node{
+			Kind: yaml.DocumentNode,
+			Content: []*yaml.Node{
+				{
+					Kind: yaml.MappingNode,
+					Content: []*yaml.Node{
+						{Kind: yaml.ScalarNode, Tag: "!!str", Value: "plugins"},
+						{Kind: yaml.MappingNode}, // empty mapping
+					},
+				},
+			},
+		}
+	} else if root.Kind != yaml.DocumentNode || len(root.Content) == 0 {
+		// Bad doc shape → reset to minimal
+		root = yaml.Node{
+			Kind: yaml.DocumentNode,
+			Content: []*yaml.Node{
+				{
+					Kind: yaml.MappingNode,
+					Content: []*yaml.Node{
+						{Kind: yaml.ScalarNode, Tag: "!!str", Value: "plugins"},
+						{Kind: yaml.MappingNode},
+					},
+				},
+			},
+		}
 	}
-	if root.Kind != yaml.DocumentNode || len(root.Content) == 0 {
-		return nil, fmt.Errorf("bad yaml")
-	}
+
 	top := root.Content[0]
 	if top.Kind != yaml.MappingNode {
 		return nil, fmt.Errorf("top-level not a mapping")
 	}
 
+	// Find or create "plugins" mapping
 	var plugins *yaml.Node
 	for i := 0; i < len(top.Content); i += 2 {
-		if top.Content[i].Value == "plugins" {
+		k := top.Content[i]
+		if k.Kind == yaml.ScalarNode && k.Value == "plugins" {
 			plugins = top.Content[i+1]
 			break
 		}
 	}
-	if plugins == nil || plugins.Kind != yaml.MappingNode {
-		return nil, fmt.Errorf(".plugins missing or not a mapping")
+	if plugins == nil {
+		plugins = &yaml.Node{Kind: yaml.MappingNode}
+		top.Content = append(top.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "plugins"},
+			plugins,
+		)
+	} else if plugins.Kind == yaml.ScalarNode && (plugins.Tag == "!!null" || plugins.Value == "") {
+		// plugins: null → convert to mapping
+		*plugins = yaml.Node{Kind: yaml.MappingNode}
+	} else if plugins.Kind != yaml.MappingNode {
+		return nil, fmt.Errorf(".plugins exists but is not a mapping")
 	}
 
-	// refuse if key exists
+	// Duplicate check (exact key match)
 	for i := 0; i < len(plugins.Content); i += 2 {
-		if plugins.Content[i].Value == key {
+		k := plugins.Content[i]
+		if k.Kind == yaml.ScalarNode && k.Value == key {
 			return nil, fmt.Errorf("plugin %q already exists", key)
 		}
 	}
 
-	// append `<key>: {shortCut, description, command, background}`
-	k := &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: key}
-	v := &yaml.Node{Kind: yaml.MappingNode}
-	appendKV(v, "shortCut", shortcut)
-	appendKV(v, "description", desc)
-	appendKV(v, "command", cmd)
-	appendList(v, "scopes", scopes)
-	appendKV(v, "background", fmt.Sprintf("%t", background))
+	// Build value node
+	val := &yaml.Node{Kind: yaml.MappingNode}
+	appendKV(val, "shortCut", shortcut)
+	appendKV(val, "description", desc)
+	appendKV(val, "command", cmd)
+	appendBool(val, "background", background)
+	appendList(val, "scopes", scopes)
 
-	plugins.Content = append(plugins.Content, k, v)
+	// Append `<key>: <val>` under plugins
+	plugins.Content = append(plugins.Content,
+		&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: key},
+		val,
+	)
 
 	out, err := yaml.Marshal(&root)
 	if err != nil {
@@ -99,13 +191,19 @@ func appendPlugin(doc []byte, key, shortcut, cmd, desc string, background bool, 
 func appendKV(m *yaml.Node, k, v string) {
 	m.Content = append(m.Content,
 		&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: k},
-		&yaml.Node{Kind: yaml.ScalarNode, Value: v}, // let yaml set tag
+		&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: v},
+	)
+}
+
+func appendBool(m *yaml.Node, k string, b bool) {
+	m.Content = append(m.Content,
+		&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: k},
+		&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!bool", Value: strconv.FormatBool(b)},
 	)
 }
 
 func appendList(m *yaml.Node, key string, values []string) {
 	k := &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: key}
-
 	seq := &yaml.Node{Kind: yaml.SequenceNode}
 	for _, v := range values {
 		seq.Content = append(seq.Content, &yaml.Node{
@@ -114,6 +212,5 @@ func appendList(m *yaml.Node, key string, values []string) {
 			Value: v,
 		})
 	}
-
 	m.Content = append(m.Content, k, seq)
 }

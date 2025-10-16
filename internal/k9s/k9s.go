@@ -8,11 +8,9 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	"github.com/nkzk/xrefs/internal/utils"
-	"gopkg.in/yaml.v3"
 )
 
 func Install(shortcut string) error {
@@ -47,40 +45,15 @@ func Install(shortcut string) error {
 	scopes := []string{"all"}
 
 	if !fileExists(pluginPath) {
-		if err := os.MkdirAll(filepath.Dir(pluginPath), 0o755); err != nil {
-			return fmt.Errorf("mkdir for %s: %w", pluginPath, err)
-		}
-
-		root := yaml.Node{
-			Kind: yaml.DocumentNode,
-			Content: []*yaml.Node{
-				{Kind: yaml.MappingNode},
-			},
-		}
-
-		top := root.Content[0]
-
-		top.Content = append(top.Content,
-			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "plugins"},
-			&yaml.Node{Kind: yaml.MappingNode},
-		)
-
-		bin, err := yaml.Marshal(&root)
-		if err != nil {
-			return fmt.Errorf("marshal seed yaml: %w", err)
-		}
-
-		out, err := appendPlugin(bin, pluginKey, shortcut, executablePath, description, background, scopes)
+		err = CreatePluginFile(pluginPath, pluginKey, shortcut, executablePath)
 		if err != nil {
 			return fmt.Errorf("append plugin into new file: %w", err)
 		}
 
-		if err := os.WriteFile(pluginPath, out, 0o644); err != nil {
-			return fmt.Errorf("write new plugins file: %w", err)
-		}
-
 		return nil
 	}
+
+	// file exists lready
 
 	if err := backupFile(pluginPath); err != nil {
 		return fmt.Errorf("failed to backup file: %w", err)
