@@ -6,14 +6,14 @@ on:
       - 'v*.*.*'
 
 permissions:
-  contents: write
+  contents: write  # required to create releases
 
 jobs:
   release:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Setup Go
@@ -23,9 +23,12 @@ jobs:
           cache: true
 
       - name: Build binary
+        id: build
         run: |
           mkdir -p dist
-          go build -o dist/$(basename $PWD) .
+          BIN_NAME=$(basename "$PWD")
+          go build -o "dist/${BIN_NAME}" .
+          echo "BIN_NAME=${BIN_NAME}" >> "$GITHUB_ENV"
 
       - name: Create GitHub Release
         id: create_release
@@ -44,6 +47,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: dist/$(basename $PWD)
-          asset_name: $(basename $PWD)
+          asset_path: dist/${{ env.BIN_NAME }}
+          asset_name: ${{ env.BIN_NAME }}
           asset_content_type: application/octet-stream
