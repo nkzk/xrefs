@@ -4,12 +4,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/nkzk/xtree/internal/utils"
+	"github.com/nkzk/xrefs/internal/utils"
 )
 
 type Client interface {
 	GetXR(kind, apiversion, name, namespace string) (string, error)
-
 	Get(kind, apiversion, name, namespace string) string
 }
 

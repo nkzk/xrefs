@@ -9,7 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/lipgloss/table"
-	"github.com/nkzk/xtree/internal/config"
+	"github.com/nkzk/xrefs/internal/config"
 	"gopkg.in/yaml.v3"
 )
 

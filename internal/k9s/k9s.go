@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/nkzk/xtree/internal/utils"
+	"github.com/nkzk/xrefs/internal/utils"
 	"gopkg.in/yaml.v3"
 )
 

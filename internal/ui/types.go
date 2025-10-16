@@ -6,7 +6,7 @@ import (
 
 	viewport "github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss/table"
-	"github.com/nkzk/xtree/internal/config"
+	"github.com/nkzk/xrefs/internal/config"
 )
 
 type Model struct {

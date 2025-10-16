@@ -7,9 +7,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/nkzk/xtree/internal/config"
-	"github.com/nkzk/xtree/internal/k9s"
-	"github.com/nkzk/xtree/internal/ui"
+	"github.com/nkzk/xrefs/internal/config"
+	"github.com/nkzk/xrefs/internal/k9s"
+	"github.com/nkzk/xrefs/internal/ui"
 )
 
 func main() {

@@ -1,4 +1,4 @@
-module github.com/nkzk/xtree
+module github.com/nkzk/xrefs
 
 go 1.24.4
 
