@@ -30,7 +30,7 @@ Logs:              /Users/test/Library/Application Support/k9s/k9s.log
 Benchmarks:        /Users/test/Library/Application Support/k9s/benchmarks
 ScreenDumps:       /Users/test/Library/Application Support/k9s/screen-dumps
 `,
-			want: "/Users/test/Library/Application\\ Support/k9s/plugins.yaml",
+			want: "/Users/test/Library/Application Support/k9s/plugins.yaml",
 		},
 
 		{
