@@ -30,13 +30,14 @@ type Plugin struct {
 
 func config(pluginKey, shortCut, command string) string {
 	s := fmt.Sprintf(`
-%s:
-  shortCut: %s
-  description: Show XR resourceRefs
-  command: %s
-  scopes:
-  - "all"
-  background: false
+plugins:
+  %s:
+    shortCut: %s
+    description: Show XR resourceRefs
+    command: %s
+    scopes:
+    - "all"
+    background: false
 `, pluginKey, shortCut, command)
 
 	return strings.TrimPrefix(s, "\n")
