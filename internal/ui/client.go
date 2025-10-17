@@ -21,10 +21,15 @@ func NewKubectlClient() *kubectl {
 }
 
 func (k kubectl) GetXR(kind, apiversion, name, namespace string) (string, error) {
+	if kind == "" || apiversion == "" || name == "" || namespace == "" {
+		return "", fmt.Errorf("missing kind, apiversion, name or namespace")
+	}
+
 	output, err := utils.RunCommand("kubectl", "get", apiversion+"/"+name, "-n", namespace, "-o", "yaml")
 	if err != nil {
-		return "", fmt.Errorf("failed to get XR: %w", err)
+		return "", fmt.Errorf("failed to run command: %w", err)
 	}
+
 	return string(output), err
 }
 

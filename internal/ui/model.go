@@ -44,12 +44,20 @@ func NewModel(client Client, config config.Config) *Model {
 		}).
 		Border(lipgloss.ThickBorder())
 
+	m.config = config
 	m.table = t
 	return m
 }
 
 func (m *Model) Init() tea.Cmd {
+	xr, err := m.client.GetXR(m.config.ResourceName, m.config.ResourceVersion, m.config.Name, m.config.Namespace)
+	if err != nil {
+		return func() tea.Msg {
+			return errMsg{err: fmt.Errorf("failed to get XR, %w", err)}
+		}
+	}
 	return tea.Batch(
+		extractResourceRefs(xr),
 		tick(),
 	)
 }
@@ -122,13 +130,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case errMsg:
 		m.err = msg
-		return m, tea.Quit
+		return m, nil
 	}
+
 	return m, nil
 }
 
 func (m *Model) View() string {
-	s := "\n"
+	s := "\n" + fmt.Sprintf("%s.%s.%s/%s -n %s | %s | %s\n", m.config.ResourceName, m.config.ResourceVersion, m.config.ResourceGroup, m.config.Name, m.config.Namespace, m.config.ColComposition, m.config.ColCompositionRevision)
 
 	if m.err != nil {
 		return "could not render view cause of error:\n" + m.err.Error()

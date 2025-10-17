@@ -37,12 +37,26 @@ plugins:
     command: %s
     scopes:
     - "all"
+    args:
+    - --name 
+    - $NAME
+    - --namespace
+    - $namespace
+    - --resourceGroup
+    - $RESOURCE_GROUP
+    - --resourceName 
+    - $RESOURCE_NAME
+    - --resourceVersion
+    - $RESOURCE__VERSION
+	- --colComposition
+    - $COL_COMPOSITION
+    - --colCompositionRevision
+    - $COL_COMPOSITION_REVISION
     background: false
-`, pluginKey, shortCut, command)
+    `, pluginKey, shortCut, command)
 
 	return strings.TrimPrefix(s, "\n")
 }
-
 func CreatePluginFile(dstPath, pluginKey, shortCut, command string) error {
 	if pluginKey == "" {
 		return errors.New("plugin name cannot be empty")
@@ -168,6 +182,16 @@ func appendPlugin(doc []byte, key, shortcut, cmd, desc string, background bool, 
 		}
 	}
 
+	args := []string{
+		"--name", "$NAME",
+		"--namespace", "$namespace",
+		"--resourceGroup", "$RESOURCE_GROUP",
+		"--resourceName", "$RESOURCE_NAME",
+		"--resourceversion", "$RESOURCE_VERSION",
+		"--colComposition", "$COL_COMPOSITION",
+		"--colCompositionRevision", "$COL_COMPOSITION_REVISION",
+	}
+
 	// Build value node
 	val := &yaml.Node{Kind: yaml.MappingNode}
 	appendKV(val, "shortCut", shortcut)
@@ -175,6 +199,7 @@ func appendPlugin(doc []byte, key, shortcut, cmd, desc string, background bool, 
 	appendKV(val, "command", cmd)
 	appendBool(val, "background", background)
 	appendList(val, "scopes", scopes)
+	appendList(val, "args", args)
 
 	// Append `<key>: <val>` under plugins
 	plugins.Content = append(plugins.Content,

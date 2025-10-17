@@ -15,9 +15,19 @@ import (
 func main() {
 	var install bool
 	var shortcut string
+	config := &config.Config{}
 
 	flag.BoolVar(&install, "install", false, "Install the k9s plugin")
 	flag.StringVar(&shortcut, "shortcut", "Shift-G", "Shortcut for the plugin (e.g. x, Shift-G, Ctrl-G)")
+
+	flag.StringVar(&config.Name, "name", "unknown", "selected resource metadata.name")
+	flag.StringVar(&config.Namespace, "namespace", "unknown", "selected resource namespace")
+	flag.StringVar(&config.ResourceGroup, "resourceGroup", "unknown", "selected resource API Group")
+	flag.StringVar(&config.ResourceName, "resourceName", "unknown", "selected resource kind")
+	flag.StringVar(&config.ResourceVersion, "resourceVersion", "unknown", "selected resource apiVersion")
+	flag.StringVar(&config.ColComposition, "colComposition", "unknown", "selected column composition")
+	flag.StringVar(&config.ColCompositionRevision, "colCompositionRevision", "unknown", "selected column composition revision")
+
 	flag.Parse()
 
 	if install {
@@ -31,11 +41,10 @@ func main() {
 	}
 
 	client := ui.NewKubectlClient()
-	config := config.Create()
 
 	if !config.IsValid() {
 		fmt.Printf(
-			"invalid configuration, make sure NAME, NAMESPACE, RESOURCE_NAME, RESOURCE_VERSION environment variables are set\n" +
+			"invalid configuration, make sure NAME, NAMESPACE, RESOURCE_NAME, RESOURCE_VERSION is set\n" +
 				"this is usually done by k9s automatically\n" +
 				"if you try to run this program outside of k9s you must supply these environment variables manually\n",
 		)
