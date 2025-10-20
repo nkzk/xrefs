@@ -50,10 +50,17 @@ func NewModel(client Client, config config.Config) *Model {
 }
 
 func (m *Model) Init() tea.Cmd {
-	xr, err := m.client.GetXR(m.config.ResourceName, m.config.ResourceVersion, m.config.Name, m.config.Namespace)
+	command, err := CreateKubectlCommand(m.config.ResourceName, m.config.ResourceGroup, m.config.ResourceVersion, m.config.Name, m.config.Namespace)
 	if err != nil {
 		return func() tea.Msg {
-			return errMsg{err: fmt.Errorf("failed to get XR, %w", err)}
+			return errMsg{err: fmt.Errorf("failed to get generate kubectl command %s, %w", command, err)}
+		}
+	}
+
+	xr, err := m.client.GetXR(command)
+	if err != nil {
+		return func() tea.Msg {
+			return errMsg{err: fmt.Errorf("failed to get XR %s, %w", command, err)}
 		}
 	}
 	return tea.Batch(
@@ -75,7 +82,14 @@ func tick() tea.Cmd {
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tickMsg:
-		xr, err := m.client.GetXR(m.config.ResourceName, m.config.ResourceVersion, m.config.Name, m.config.Namespace)
+		command, err := CreateKubectlCommand(m.config.ResourceName, m.config.ResourceGroup, m.config.ResourceVersion, m.config.Name, m.config.Namespace)
+		if err != nil {
+			return m, func() tea.Msg {
+				return errMsg{err: fmt.Errorf("failed to create kubectl command, %w", err)}
+			}
+		}
+
+		xr, err := m.client.GetXR(command)
 		if err != nil {
 			return m, func() tea.Msg {
 				return errMsg{err: fmt.Errorf("failed to get XR, %w", err)}
@@ -111,7 +125,18 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.err = fmt.Errorf("failed to convert row string to row: %w", err)
 			}
 
-			result := m.client.Get(row.Kind, row.ApiVersion, row.Name, row.Namespace)
+			command, err := CreateKubectlCommand(row.Kind, "", row.ApiVersion, row.Name, row.Namespace)
+			if err != nil {
+				m.err = fmt.Errorf("failed to create kubectl command: %w", err)
+				return m, nil
+			}
+
+			result, err := m.client.Get(command)
+			if err != nil {
+				m.err = fmt.Errorf("failed to get resource with command '%s': %w", command, err)
+				return m, nil
+			}
+
 			m.viewport.SetContent(result)
 			m.showViewport = true
 		case "up", "k":

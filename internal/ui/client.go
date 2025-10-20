@@ -8,8 +8,8 @@ import (
 )
 
 type Client interface {
-	GetXR(kind, apiversion, name, namespace string) (string, error)
-	Get(kind, apiversion, name, namespace string) string
+	GetXR(command string) (string, error)
+	Get(command string) (string, error)
 }
 
 type mock struct{}
@@ -20,20 +20,33 @@ func NewKubectlClient() *kubectl {
 	return &kubectl{}
 }
 
-func (k kubectl) GetXR(kind, apiversion, name, namespace string) (string, error) {
+func CreateKubectlCommand(kind, group, apiversion, name, namespace string) (string, error) {
 	if kind == "" || apiversion == "" || name == "" || namespace == "" {
 		return "", fmt.Errorf("missing kind, apiversion, name or namespace")
 	}
 
-	output, err := utils.RunCommand("kubectl", "get", apiversion+"/"+name, "-n", namespace, "-o", "yaml")
+	// if apiVersion contains "/" it means it also contains the group, return accordingly
+	i := strings.IndexRune(apiversion, '/')
+	if i != -1 {
+		apiversion = apiversion[:i]
+		return fmt.Sprintf("kubectl get %s.%s/%s -n %s -o yaml", kind, apiversion, name, namespace), nil
+	}
+
+	return fmt.Sprintf("kubectl get %s.%s.%s/%s -n %s -o yaml", kind, apiversion, group, name, namespace), nil
+}
+
+func (k kubectl) GetXR(command string) (string, error) {
+	cmd := strings.Fields(command)
+
+	output, err := utils.RunCommand(cmd[0], cmd[1:]...)
 	if err != nil {
-		return "", fmt.Errorf("failed to run command: %w", err)
+		return "", fmt.Errorf("failed to run command: %s, %w", cmd, err)
 	}
 
 	return string(output), err
 }
 
-func (m mock) GetXR(kind, apiversion, name, namespace string) (string, error) {
+func (m mock) GetXR(command string) (string, error) {
 	return strings.TrimPrefix(`
 apiVersion: group.domain.com/v1alpha1
 kind: Auth
@@ -120,15 +133,17 @@ status:
 		"\n"), nil
 }
 
-func (m mock) Get(kind, apiversion, name, namespace string) string {
-	return fmt.Sprintf("ayo %s", name)
+func (m mock) Get(command string) (string, error) {
+	return fmt.Sprintf("ayo %s", command), nil
 }
 
-func (k kubectl) Get(kind, apiversion, name, namespace string) string {
-	output, err := utils.RunCommand("kubectl", "get", apiversion+"/"+name, "-n", namespace, "-o", "yaml")
+func (k kubectl) Get(command string) (string, error) {
+	cmd := strings.Fields(command)
+
+	output, err := utils.RunCommand(cmd[0], cmd[1:]...)
 	if err != nil {
-		return fmt.Sprintf("failed to get resource: %v", err)
+		return "", fmt.Errorf("failed to get resource: %v", err)
 	}
 
-	return string(output)
+	return string(output), nil
 }

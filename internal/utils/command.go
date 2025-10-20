@@ -10,7 +10,7 @@ func RunCommand(command string, arg ...string) ([]byte, error) {
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get command output: %w, %s", err, output)
+		return nil, fmt.Errorf("command failed:%s %s\nerror: %w\noutput: %s", command, arg, err, output)
 	}
 
 	return output, nil
