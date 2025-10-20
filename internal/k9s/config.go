@@ -48,7 +48,7 @@ plugins:
     - $RESOURCE_NAME
     - --resourceVersion
     - $RESOURCE__VERSION
-	- --colComposition
+    - --colComposition
     - $COL_COMPOSITION
     - --colCompositionRevision
     - $COL_COMPOSITION_REVISION
