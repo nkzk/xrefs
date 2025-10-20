@@ -49,9 +49,9 @@ plugins:
     - --resourceVersion
     - $RESOURCE_VERSION
     - --colComposition
-    - $COL_COMPOSITION
+    - $COL-COMPOSITION
     - --colCompositionRevision
-    - $COL_COMPOSITION_REVISION
+    - $COL-COMPOSITION_REVISION
     background: false
     `, pluginKey, shortCut, command)
 
@@ -188,8 +188,8 @@ func appendPlugin(doc []byte, key, shortcut, cmd, desc string, background bool, 
 		"--resourceGroup", "$RESOURCE_GROUP",
 		"--resourceName", "$RESOURCE_NAME",
 		"--resourceversion", "$RESOURCE_VERSION",
-		"--colComposition", "$COL_COMPOSITION",
-		"--colCompositionRevision", "$COL_COMPOSITION_REVISION",
+		"--colComposition", "$COL-COMPOSITION",
+		"--colCompositionRevision", "$COL-COMPOSITIONREVISION",
 	}
 
 	// Build value node
