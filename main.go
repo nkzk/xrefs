@@ -19,6 +19,7 @@ func main() {
 
 	flag.BoolVar(&install, "install", false, "Install the k9s plugin")
 	flag.StringVar(&shortcut, "shortcut", "Shift-G", "Shortcut for the plugin (e.g. x, Shift-G, Ctrl-G)")
+	flag.BoolVar(&config.Mock, "mock", false, "Mock mode for development")
 
 	flag.StringVar(&config.Name, "name", "unknown", "selected resource metadata.name")
 	flag.StringVar(&config.Namespace, "namespace", "unknown", "selected resource namespace")
