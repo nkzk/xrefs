@@ -41,7 +41,12 @@ func main() {
 		return
 	}
 
-	client := ui.NewKubectlClient()
+	var client ui.Client
+	if config.Mock {
+		client = ui.NewMockClient()
+	} else {
+		client = ui.NewKubectlClient()
+	}
 
 	if !config.IsValid() {
 		fmt.Printf(
@@ -51,7 +56,7 @@ func main() {
 		)
 	}
 
-	if _, err := tea.NewProgram(ui.NewModel(*client, *config), tea.WithAltScreen()).Run(); err != nil {
+	if _, err := tea.NewProgram(ui.NewModel(client, *config), tea.WithAltScreen()).Run(); err != nil {
 		fmt.Printf("failed to start: %v", err)
 		os.Exit(1)
 	}
