@@ -49,10 +49,10 @@ func createDescribeCommand(row row) (string, error) {
 	i := strings.IndexRune(apiVersion, '/')
 	if i != -1 {
 		apiVersion = apiVersion[:i]
-		return fmt.Sprintf("kubectl describe %s.%s/%s -n %s", row.Kind, row.ApiVersion, row.Name, row.Namespace), nil
+		return fmt.Sprintf("kubectl describe %s.%s/%s -n %s", row.Kind, apiVersion, row.Name, row.Namespace), nil
 	}
 
-	return fmt.Sprintf("kubectl describe %s.%s.%s/%s -n %s", row.Kind, row.ApiVersion, row.Name, row.Namespace), nil
+	return fmt.Sprintf("kubectl describe %s.%s.%s/%s -n %s", row.Kind, row.ApiVersion, "", row.Name, row.Namespace), nil
 }
 
 func (k kubectl) GetXR(command string) (string, error) {
@@ -156,7 +156,9 @@ status:
 func (m mock) Get(command string) (string, error) {
 	// if describe
 	if strings.Contains(command, "describe") {
-		return `
+		return fmt.Sprintf(`
+# ran command: %s
+
 Name:                 coredns-5d78c9869d-dxvz8
 Namespace:            kube-system
 Priority:             2000000000
@@ -221,11 +223,13 @@ Tolerations:                 CriticalAddonsOnly op=Exists
                              node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
                              node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
 Events:                      <none>
-`, nil
+`, command), nil
 	}
 
 	// if yaml
-	return `
+	return fmt.Sprintf(`
+# ran command: %s 
+
 apiVersion: v1
 kind: Pod
 metadata:
@@ -407,7 +411,7 @@ status:
   - ip: 10.244.0.3
   qosClass: Burstable
   startTime: "2025-10-05T14:03:16Z"
-`, nil
+`, command), nil
 }
 
 func (k kubectl) Get(command string) (string, error) {
