@@ -38,6 +38,7 @@ func createGetYamlCommand(kind, group, apiversion, name, namespace string) (stri
 
 	return fmt.Sprintf("kubectl get %s.%s.%s/%s -n %s -o yaml", kind, apiversion, group, name, namespace), nil
 }
+
 func createDescribeCommand(row row) (string, error) {
 	if row.Kind == "" || row.ApiVersion == "" || row.Name == "" || row.Namespace == "" {
 		return "", fmt.Errorf("missing kind, apiversion, name or namespace")
