@@ -38,6 +38,10 @@ func (m *Model) View() string {
 		return "\nloading…\n"
 	}
 
+	if len(m.rows) == 0 {
+		return "\nThis one doesnt have any resource references ¯\\_(ツ)_/¯\nTry another one\n\n(esc/q to go back)\n"
+	}
+
 	if m.showViewport {
 		return m.viewportView()
 	} else {
@@ -52,7 +56,7 @@ func (m *Model) viewportView() string {
 }
 
 func (m *Model) viewportHeaderView() string {
-	title := titleStyle.Render("¯\\_(ツ)_/¯")
+	title := titleStyle.Render("ツ")
 	line := strings.Repeat("─", max(0, m.viewport.Width-lipgloss.Width(title)))
 	return lipgloss.JoinHorizontal(lipgloss.Center, title, line)
 }

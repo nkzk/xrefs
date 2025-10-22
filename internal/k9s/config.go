@@ -116,109 +116,39 @@ func appendPlugin(doc []byte, key, shortcut, cmd, desc string, background bool, 
 		return nil, fmt.Errorf("plugin name (key) cannot be empty")
 	}
 
-	var root yaml.Node
-	// If the file is empty or bad YAML, start a fresh doc: { plugins: {} }
-	if len(bytes.TrimSpace(doc)) == 0 || yaml.Unmarshal(doc, &root) != nil {
-		root = yaml.Node{
-			Kind: yaml.DocumentNode,
-			Content: []*yaml.Node{
-				{
-					Kind: yaml.MappingNode,
-					Content: []*yaml.Node{
-						{Kind: yaml.ScalarNode, Tag: "!!str", Value: "plugins"},
-						{Kind: yaml.MappingNode}, // empty mapping
-					},
-				},
-			},
-		}
-	} else if root.Kind != yaml.DocumentNode || len(root.Content) == 0 {
-		// Bad doc shape → reset to minimal
-		root = yaml.Node{
-			Kind: yaml.DocumentNode,
-			Content: []*yaml.Node{
-				{
-					Kind: yaml.MappingNode,
-					Content: []*yaml.Node{
-						{Kind: yaml.ScalarNode, Tag: "!!str", Value: "plugins"},
-						{Kind: yaml.MappingNode},
-					},
-				},
-			},
+	// Parse as generic maps → preserves unknown fields in other plugins.
+	root := map[string]any{}
+	if len(bytes.TrimSpace(doc)) > 0 {
+		if err := yaml.Unmarshal(doc, &root); err != nil {
+			root = map[string]any{}
 		}
 	}
 
-	top := root.Content[0]
-	if top.Kind != yaml.MappingNode {
-		return nil, fmt.Errorf("top-level not a mapping")
-	}
-
-	// Find or create "plugins" mapping
-	var plugins *yaml.Node
-	for i := 0; i < len(top.Content); i += 2 {
-		k := top.Content[i]
-		if k.Kind == yaml.ScalarNode && k.Value == "plugins" {
-			plugins = top.Content[i+1]
-			break
-		}
-	}
+	plugins, _ := root["plugins"].(map[string]any)
 	if plugins == nil {
-		plugins = &yaml.Node{Kind: yaml.MappingNode}
-		top.Content = append(top.Content,
-			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "plugins"},
-			plugins,
-		)
-	} else if plugins.Kind == yaml.ScalarNode && (plugins.Tag == "!!null" || plugins.Value == "") {
-		// plugins: null → convert to mapping
-		*plugins = yaml.Node{Kind: yaml.MappingNode}
-	} else if plugins.Kind != yaml.MappingNode {
-		return nil, fmt.Errorf(".plugins exists but is not a mapping")
+		plugins = map[string]any{}
+		root["plugins"] = plugins
 	}
 
-	// Build the new value node we want to set for this key
-	args := []string{
-		"--name", "$NAME",
-		"--namespace", "$namespace",
-		"--resourceGroup", "$RESOURCE_GROUP",
-		"--resourceName", "$RESOURCE_NAME",
-		"--resourceVersion", "$RESOURCE_VERSION",
-		"--colComposition", "$COL-COMPOSITION",
-		"--colCompositionRevision", "$COL-COMPOSITION_REVISION",
+	// Build (or overwrite) only the target plugin.
+	plugins[key] = map[string]any{
+		"shortCut":    shortcut,
+		"description": desc,
+		"command":     cmd,
+		"background":  background,
+		"scopes":      append([]string(nil), scopes...),
+		"args": []string{
+			"--name", "$NAME",
+			"--namespace", "$namespace",
+			"--resourceGroup", "$RESOURCE_GROUP",
+			"--resourceName", "$RESOURCE_NAME",
+			"--resourceVersion", "$RESOURCE_VERSION",
+			"--colComposition", "$COL-COMPOSITION",
+			"--colCompositionRevision", "$COL-COMPOSITION_REVISION",
+		},
 	}
 
-	newVal := &yaml.Node{Kind: yaml.MappingNode}
-	appendKV(newVal, "shortCut", shortcut)
-	appendKV(newVal, "description", desc)
-	appendKV(newVal, "command", cmd)
-	appendBool(newVal, "background", background)
-	appendList(newVal, "scopes", scopes)
-	appendList(newVal, "args", args)
-
-	// Look for existing key; if found, overwrite value in place.
-	existingIdx := -1
-	for i := 0; i < len(plugins.Content); i += 2 {
-		k := plugins.Content[i]
-		if k.Kind == yaml.ScalarNode && k.Value == key {
-			existingIdx = i
-			break
-		}
-	}
-
-	if existingIdx >= 0 {
-		// Overwrite the value node (keeps the original key position/order)
-		plugins.Content[existingIdx+1] = newVal
-	} else {
-		// Append new `<key>: <value>`
-		plugins.Content = append(plugins.Content,
-			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: key},
-			newVal,
-		)
-	}
-
-	out, err := yaml.Marshal(&root)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
+	return yaml.Marshal(root)
 }
 
 func appendKV(m *yaml.Node, k, v string) {
