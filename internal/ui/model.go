@@ -85,6 +85,12 @@ func (m *Model) applyData(newRows []row) {
 	m.table.Rows(rows...)
 }
 
+func (m *Model) getSelectedRow() (row, error) {
+	r := m.rows[m.cursor]
+
+	return toRow(r)
+}
+
 func getRows(yamlString string) ([]row, error) {
 	xr := &XR{}
 	err := yaml.Unmarshal([]byte(yamlString), xr)
