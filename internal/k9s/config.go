@@ -174,38 +174,45 @@ func appendPlugin(doc []byte, key, shortcut, cmd, desc string, background bool, 
 		return nil, fmt.Errorf(".plugins exists but is not a mapping")
 	}
 
-	// Duplicate check (exact key match)
-	for i := 0; i < len(plugins.Content); i += 2 {
-		k := plugins.Content[i]
-		if k.Kind == yaml.ScalarNode && k.Value == key {
-			return nil, fmt.Errorf("plugin %q already exists", key)
-		}
-	}
-
+	// Build the new value node we want to set for this key
 	args := []string{
 		"--name", "$NAME",
 		"--namespace", "$namespace",
 		"--resourceGroup", "$RESOURCE_GROUP",
 		"--resourceName", "$RESOURCE_NAME",
-		"--resourceversion", "$RESOURCE_VERSION",
+		"--resourceVersion", "$RESOURCE_VERSION",
 		"--colComposition", "$COL-COMPOSITION",
-		"--colCompositionRevision", "$COL-COMPOSITIONREVISION",
+		"--colCompositionRevision", "$COL-COMPOSITION_REVISION",
 	}
 
-	// Build value node
-	val := &yaml.Node{Kind: yaml.MappingNode}
-	appendKV(val, "shortCut", shortcut)
-	appendKV(val, "description", desc)
-	appendKV(val, "command", cmd)
-	appendBool(val, "background", background)
-	appendList(val, "scopes", scopes)
-	appendList(val, "args", args)
+	newVal := &yaml.Node{Kind: yaml.MappingNode}
+	appendKV(newVal, "shortCut", shortcut)
+	appendKV(newVal, "description", desc)
+	appendKV(newVal, "command", cmd)
+	appendBool(newVal, "background", background)
+	appendList(newVal, "scopes", scopes)
+	appendList(newVal, "args", args)
 
-	// Append `<key>: <val>` under plugins
-	plugins.Content = append(plugins.Content,
-		&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: key},
-		val,
-	)
+	// Look for existing key; if found, overwrite value in place.
+	existingIdx := -1
+	for i := 0; i < len(plugins.Content); i += 2 {
+		k := plugins.Content[i]
+		if k.Kind == yaml.ScalarNode && k.Value == key {
+			existingIdx = i
+			break
+		}
+	}
+
+	if existingIdx >= 0 {
+		// Overwrite the value node (keeps the original key position/order)
+		plugins.Content[existingIdx+1] = newVal
+	} else {
+		// Append new `<key>: <value>`
+		plugins.Content = append(plugins.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: key},
+			newVal,
+		)
+	}
 
 	out, err := yaml.Marshal(&root)
 	if err != nil {
