@@ -90,7 +90,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.err = fmt.Errorf("failed to get resource with command '%s': %w", command, err)
 				}
 
-				m.viewport.SetContent(result)
+				m.viewport.SetContent(highlightDescribe(result))
 				m.viewport.GotoTop()
 				m.showViewport = true
 			}
@@ -114,7 +114,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, nil
 				}
 
-				m.viewport.SetContent(result)
+				m.viewport.SetContent(highlightYAML(result))
 				m.viewport.GotoTop()
 				m.showViewport = true
 			}
@@ -125,6 +125,18 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "down", "j":
 			if m.cursor < len(m.rows)-1 {
 				m.cursor++
+			}
+		case "g":
+			if m.showViewport {
+				m.viewport.GotoTop()
+			} else {
+				m.cursor = 0
+			}
+		case "G":
+			if m.showViewport {
+				m.viewport.GotoBottom()
+			} else {
+				m.cursor = len(m.rows) - 1
 			}
 		}
 

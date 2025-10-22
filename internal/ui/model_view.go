@@ -1,9 +1,13 @@
 package ui
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
+	"regexp"
 	"strings"
 
+	"github.com/alecthomas/chroma/v2/quick"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -55,4 +59,41 @@ func (m *Model) viewportFooterView() string {
 	info := infoStyle.Render(fmt.Sprintf("%3.f%%", m.viewport.ScrollPercent()*100))
 	line := strings.Repeat("─", max(0, m.viewport.Width-lipgloss.Width(info)))
 	return lipgloss.JoinHorizontal(lipgloss.Center, line, info)
+}
+
+func highlightYAML(src string) string {
+	var buf bytes.Buffer
+
+	// styles: try "dracula", "github", "monokai", "solarized-dark", etc.
+	if err := quick.Highlight(&buf, src, "yaml", "terminal16m", "github"); err != nil {
+		return src
+	}
+
+	return buf.String()
+}
+
+// highlightDescribe colors only the key in "key: value" lines,
+// keeping indentation and spacing intact.
+func highlightDescribe(src string) string {
+	keyStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#8BE9FD")) // cyan
+
+	re := regexp.MustCompile(`^(\s*)([^:\n]+?)(:)(\s*)(.*)$`)
+
+	var b strings.Builder
+	sc := bufio.NewScanner(strings.NewReader(src))
+	for sc.Scan() {
+		line := sc.Text()
+		if m := re.FindStringSubmatch(line); m != nil {
+			indent, key, colon, spAfter, val := m[1], m[2], m[3], m[4], m[5]
+			b.WriteString(indent)
+			b.WriteString(keyStyle.Render(key))
+			b.WriteString(colon)
+			b.WriteString(spAfter)
+			b.WriteString(val)
+		} else {
+			b.WriteString(line)
+		}
+		b.WriteByte('\n')
+	}
+	return b.String()
 }
