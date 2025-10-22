@@ -38,7 +38,6 @@ func createGetYamlCommand(kind, group, apiversion, name, namespace string) (stri
 
 	return fmt.Sprintf("kubectl get %s.%s.%s/%s -n %s -o yaml", kind, apiversion, group, name, namespace), nil
 }
-
 func createDescribeCommand(row row) (string, error) {
 	if row.Kind == "" || row.ApiVersion == "" || row.Name == "" || row.Namespace == "" {
 		return "", fmt.Errorf("missing kind, apiversion, name or namespace")
@@ -49,10 +48,10 @@ func createDescribeCommand(row row) (string, error) {
 	i := strings.IndexRune(apiVersion, '/')
 	if i != -1 {
 		apiVersion = apiVersion[:i]
-		return fmt.Sprintf("kubectl describe %s.%s/%s -n %s", row.Kind, row.ApiVersion, row.Name, row.Namespace), nil
+		return fmt.Sprintf("kubectl describe %s.%s/%s -n %s", row.Kind, apiVersion, row.Name, row.Namespace), nil
 	}
 
-	return fmt.Sprintf("kubectl describe %s.%s.%s/%s -n %s", row.Kind, row.ApiVersion, row.Name, row.Namespace), nil
+	return fmt.Sprintf("kubectl describe %s.%s.%s/%s -n %s", row.Kind, row.ApiVersion, "", row.Name, row.Namespace), nil
 }
 
 func (k kubectl) GetXR(command string) (string, error) {
