@@ -52,7 +52,7 @@ func TestCreateKubectlCommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd, err := CreateKubectlCommand(tt.kind, tt.group, tt.apiVersion, tt.resource, tt.namespace)
+			cmd, err := createGetYamlCommand(tt.kind, tt.group, tt.apiVersion, tt.resource, tt.namespace)
 
 			if tt.expectError {
 				if err == nil {

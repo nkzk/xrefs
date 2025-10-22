@@ -12,9 +12,27 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type errMsg struct{ err error }
+type Model struct {
+	config       config.Config
+	table        *table.Table
+	rows         [][]string
+	cursor       int
+	err          error
+	client       Client
+	viewport     viewport.Model
+	showViewport bool
+}
 
-func (e errMsg) Error() string { return e.err.Error() }
+type row struct {
+	Namespace    string
+	Kind         string
+	ApiVersion   string
+	Name         string
+	Synced       string
+	SyncedReason string
+	Ready        string
+	ReadyReason  string
+}
 
 func NewModel(client Client, config config.Config) *Model {
 	r := row{}
@@ -49,7 +67,7 @@ func NewModel(client Client, config config.Config) *Model {
 }
 
 func (m *Model) Init() tea.Cmd {
-	command, err := CreateKubectlCommand(m.config.ResourceName, m.config.ResourceGroup, m.config.ResourceVersion, m.config.Name, m.config.Namespace)
+	command, err := createGetYamlCommand(m.config.ResourceName, m.config.ResourceGroup, m.config.ResourceVersion, m.config.Name, m.config.Namespace)
 	if err != nil {
 		return func() tea.Msg {
 			return errMsg{err: fmt.Errorf("failed to get generate kubectl command %s, %w", command, err)}

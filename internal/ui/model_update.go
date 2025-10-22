@@ -20,7 +20,7 @@ func tick() tea.Cmd {
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tickMsg:
-		command, err := CreateKubectlCommand(m.config.ResourceName, m.config.ResourceGroup, m.config.ResourceVersion, m.config.Name, m.config.Namespace)
+		command, err := createGetYamlCommand(m.config.ResourceName, m.config.ResourceGroup, m.config.ResourceVersion, m.config.Name, m.config.Namespace)
 		if err != nil {
 			return m, func() tea.Msg {
 				return errMsg{err: fmt.Errorf("failed to create kubectl command, %w", err)}
@@ -55,15 +55,31 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.showViewport = false
 		case "q", "ctrl+c":
 			return m, tea.Quit
-		case "enter", "y":
-			r := m.rows[m.cursor]
-
-			row, err := toRow(r)
+		case "d":
+			row, err := m.getSelectedRow()
 			if err != nil {
-				m.err = fmt.Errorf("failed to convert row string to row: %w", err)
+				m.err = fmt.Errorf("failed to get selected row: %w", err)
 			}
 
-			command, err := CreateKubectlCommand(row.Kind, "", row.ApiVersion, row.Name, row.Namespace)
+			command, err := createDescribeCommand(row)
+			if err != nil {
+				m.err = fmt.Errorf("failed to create describe command: %w", err)
+			}
+
+			result, err := m.client.Get(command)
+			if err != nil {
+				m.err = fmt.Errorf("failed to get resource with command '%s': %w", command, err)
+			}
+
+			m.viewport.SetContent(result)
+			m.showViewport = true
+		case "enter", "y":
+			row, err := m.getSelectedRow()
+			if err != nil {
+				m.err = fmt.Errorf("failed to get selected row: %w", err)
+			}
+
+			command, err := createGetYamlCommand(row.Kind, "", row.ApiVersion, row.Name, row.Namespace)
 			if err != nil {
 				m.err = fmt.Errorf("failed to create kubectl command: %w", err)
 				return m, nil
