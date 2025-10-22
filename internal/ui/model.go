@@ -3,7 +3,6 @@ package ui
 import (
 	"fmt"
 	"os"
-	"time"
 
 	viewport "github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -13,9 +12,27 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type errMsg struct{ err error }
+type Model struct {
+	config       config.Config
+	table        *table.Table
+	rows         [][]string
+	cursor       int
+	err          error
+	client       Client
+	viewport     viewport.Model
+	showViewport bool
+}
 
-func (e errMsg) Error() string { return e.err.Error() }
+type row struct {
+	Namespace    string
+	Kind         string
+	ApiVersion   string
+	Name         string
+	Synced       string
+	SyncedReason string
+	Ready        string
+	ReadyReason  string
+}
 
 func NewModel(client Client, config config.Config) *Model {
 	r := row{}
@@ -50,7 +67,7 @@ func NewModel(client Client, config config.Config) *Model {
 }
 
 func (m *Model) Init() tea.Cmd {
-	command, err := CreateKubectlCommand(m.config.ResourceName, m.config.ResourceGroup, m.config.ResourceVersion, m.config.Name, m.config.Namespace)
+	command, err := createGetYamlCommand(m.config.ResourceName, m.config.ResourceGroup, m.config.ResourceVersion, m.config.Name, m.config.Namespace)
 	if err != nil {
 		return func() tea.Msg {
 			return errMsg{err: fmt.Errorf("failed to get generate kubectl command %s, %w", command, err)}
@@ -69,117 +86,6 @@ func (m *Model) Init() tea.Cmd {
 	)
 }
 
-const refreshInterval = 7 * time.Second
-
-type tickMsg time.Time
-
-func tick() tea.Cmd {
-	return tea.Tick(refreshInterval, func(t time.Time) tea.Msg {
-		return tickMsg(t)
-	})
-}
-
-func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tickMsg:
-		command, err := CreateKubectlCommand(m.config.ResourceName, m.config.ResourceGroup, m.config.ResourceVersion, m.config.Name, m.config.Namespace)
-		if err != nil {
-			return m, func() tea.Msg {
-				return errMsg{err: fmt.Errorf("failed to create kubectl command, %w", err)}
-			}
-		}
-
-		xr, err := m.client.GetXR(command)
-		if err != nil {
-			return m, func() tea.Msg {
-				return errMsg{err: fmt.Errorf("failed to get XR, %w", err)}
-			}
-		}
-
-		return m, tea.Batch(
-			extractResourceRefs(xr),
-			tick(),
-		)
-
-	case []row:
-		m.applyData(msg)
-
-	case tea.WindowSizeMsg:
-		if m.table != nil {
-			m.table = m.table.Width(msg.Width).Height(msg.Height)
-		}
-		m.viewport.Width = msg.Width
-		m.viewport.Height = msg.Height
-
-	case tea.KeyMsg:
-		switch msg.String() {
-		case "esc", "backspace":
-			m.showViewport = false
-		case "q", "ctrl+c":
-			return m, tea.Quit
-		case "enter":
-			r := m.rows[m.cursor]
-
-			row, err := toRow(r)
-			if err != nil {
-				m.err = fmt.Errorf("failed to convert row string to row: %w", err)
-			}
-
-			command, err := CreateKubectlCommand(row.Kind, "", row.ApiVersion, row.Name, row.Namespace)
-			if err != nil {
-				m.err = fmt.Errorf("failed to create kubectl command: %w", err)
-				return m, nil
-			}
-
-			result, err := m.client.Get(command)
-			if err != nil {
-				m.err = fmt.Errorf("failed to get resource with command '%s': %w", command, err)
-				return m, nil
-			}
-
-			m.viewport.SetContent(result)
-			m.showViewport = true
-		case "up", "k":
-			if m.cursor > 0 {
-				m.cursor--
-			}
-		case "down", "j":
-			if m.cursor < len(m.rows)-1 {
-				m.cursor++
-			}
-		}
-
-		var cmd tea.Cmd
-		m.viewport, cmd = m.viewport.Update(msg)
-		return m, cmd
-
-	case errMsg:
-		m.err = msg
-		return m, nil
-	}
-
-	return m, nil
-}
-
-func (m *Model) View() string {
-	s := "\n" + fmt.Sprintf("%s.%s.%s/%s -n %s | %s | %s\n", m.config.ResourceName, m.config.ResourceVersion, m.config.ResourceGroup, m.config.Name, m.config.Namespace, m.config.ColComposition, m.config.ColCompositionRevision)
-
-	if m.err != nil {
-		return "could not render view cause of error:\n" + m.err.Error()
-	}
-
-	if m.table == nil {
-		return "\nloading…\n"
-	}
-
-	if m.showViewport {
-		s += m.viewport.View()
-	} else {
-		s += m.table.String() + "\n"
-	}
-	return s
-}
-
 func (m *Model) applyData(newRows []row) {
 	if len(newRows) == 0 {
 		return
@@ -195,6 +101,12 @@ func (m *Model) applyData(newRows []row) {
 
 	m.rows = rows
 	m.table.Rows(rows...)
+}
+
+func (m *Model) getSelectedRow() (row, error) {
+	r := m.rows[m.cursor]
+
+	return toRow(r)
 }
 
 func getRows(yamlString string) ([]row, error) {

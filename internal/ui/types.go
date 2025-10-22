@@ -3,33 +3,11 @@ package ui
 import (
 	"fmt"
 	"reflect"
-
-	viewport "github.com/charmbracelet/bubbles/viewport"
-	"github.com/charmbracelet/lipgloss/table"
-	"github.com/nkzk/xrefs/internal/config"
 )
 
-type Model struct {
-	config       config.Config
-	table        *table.Table
-	rows         [][]string
-	cursor       int
-	err          error
-	client       Client
-	viewport     viewport.Model
-	showViewport bool
-}
+type errMsg struct{ err error }
 
-type row struct {
-	Namespace    string
-	Kind         string
-	ApiVersion   string
-	Name         string
-	Synced       string
-	SyncedReason string
-	Ready        string
-	ReadyReason  string
-}
+func (e errMsg) Error() string { return e.err.Error() }
 
 func headersFromRow(r row) []string {
 	v := reflect.ValueOf(r)
