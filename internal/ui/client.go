@@ -156,7 +156,7 @@ status:
 func (m mock) Get(command string) (string, error) {
 	// if describe
 	if strings.Contains(command, "describe") {
-		return fmt.Sprintf(`
+		return `
 Name:                 coredns-5d78c9869d-dxvz8
 Namespace:            kube-system
 Priority:             2000000000
@@ -221,11 +221,11 @@ Tolerations:                 CriticalAddonsOnly op=Exists
                              node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
                              node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
 Events:                      <none>
-`), nil
+`, nil
 	}
 
 	// if yaml
-	return fmt.Sprintf(`
+	return `
 apiVersion: v1
 kind: Pod
 metadata:
@@ -407,7 +407,7 @@ status:
   - ip: 10.244.0.3
   qosClass: Burstable
   startTime: "2025-10-05T14:03:16Z"
-`), nil
+`, nil
 }
 
 func (k kubectl) Get(command string) (string, error) {
