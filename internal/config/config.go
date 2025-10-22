@@ -8,6 +8,7 @@ type Config struct {
 	ResourceVersion        string
 	ColComposition         string
 	ColCompositionRevision string
+	Mock                   bool
 }
 
 func (c Config) IsValid() bool {

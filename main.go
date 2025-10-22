@@ -19,6 +19,7 @@ func main() {
 
 	flag.BoolVar(&install, "install", false, "Install the k9s plugin")
 	flag.StringVar(&shortcut, "shortcut", "Shift-G", "Shortcut for the plugin (e.g. x, Shift-G, Ctrl-G)")
+	flag.BoolVar(&config.Mock, "mock", false, "Mock mode for development")
 
 	flag.StringVar(&config.Name, "name", "unknown", "selected resource metadata.name")
 	flag.StringVar(&config.Namespace, "namespace", "unknown", "selected resource namespace")
@@ -40,7 +41,12 @@ func main() {
 		return
 	}
 
-	client := ui.NewKubectlClient()
+	var client ui.Client
+	if config.Mock {
+		client = ui.NewMockClient()
+	} else {
+		client = ui.NewKubectlClient()
+	}
 
 	if !config.IsValid() {
 		fmt.Printf(
@@ -50,7 +56,7 @@ func main() {
 		)
 	}
 
-	if _, err := tea.NewProgram(ui.NewModel(*client, *config), tea.WithAltScreen()).Run(); err != nil {
+	if _, err := tea.NewProgram(ui.NewModel(client, *config), tea.WithAltScreen()).Run(); err != nil {
 		fmt.Printf("failed to start: %v", err)
 		os.Exit(1)
 	}

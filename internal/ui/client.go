@@ -20,6 +20,10 @@ func NewKubectlClient() *kubectl {
 	return &kubectl{}
 }
 
+func NewMockClient() *mock {
+  return &mock{}
+}
+
 func CreateKubectlCommand(kind, group, apiversion, name, namespace string) (string, error) {
 	if kind == "" || apiversion == "" || name == "" || namespace == "" {
 		return "", fmt.Errorf("missing kind, apiversion, name or namespace")
