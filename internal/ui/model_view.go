@@ -26,6 +26,8 @@ var (
 )
 
 func (m *Model) View() string {
+	tableHelp := "\nd: describe, y/enter: yaml, arrow-up/k: up, arrow-down/j: down, end/G: bottom, home/g: top"
+
 	s := "\n" + fmt.Sprintf("%s.%s.%s/%s -n %s | %s | %s\n", m.config.ResourceName, m.config.ResourceVersion, m.config.ResourceGroup, m.config.Name, m.config.Namespace, m.config.ColComposition, m.config.ColCompositionRevision)
 
 	if m.err != nil {
@@ -39,7 +41,7 @@ func (m *Model) View() string {
 	if m.showViewport {
 		return m.viewportView()
 	} else {
-		s += m.table.String() + "\n"
+		s += m.table.String() + highlightText(tableHelp) + "\n"
 	}
 	return s
 }
@@ -61,6 +63,16 @@ func (m *Model) viewportFooterView() string {
 	return lipgloss.JoinHorizontal(lipgloss.Center, line, info)
 }
 
+func highlightText(src string) string {
+	var buf bytes.Buffer
+
+	err := quick.Highlight(&buf, src, "go", "", "github")
+	if err != nil {
+		return src
+	}
+
+	return buf.String()
+}
 func highlightYAML(src string) string {
 	var buf bytes.Buffer
 
