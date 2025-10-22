@@ -13,14 +13,15 @@ import (
 )
 
 type Model struct {
-	config       config.Config
-	table        *table.Table
-	rows         [][]string
-	cursor       int
-	err          error
-	client       Client
-	viewport     viewport.Model
-	showViewport bool
+	config        config.Config
+	table         *table.Table
+	rows          [][]string
+	cursor        int
+	err           error
+	client        Client
+	viewport      viewport.Model
+	viewportReady bool
+	showViewport  bool
 }
 
 type row struct {

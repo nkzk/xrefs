@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"time"
 
+	viewport "github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 const refreshInterval = 7 * time.Second
@@ -46,8 +48,24 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.table != nil {
 			m.table = m.table.Width(msg.Width).Height(msg.Height)
 		}
-		m.viewport.Width = msg.Width
-		m.viewport.Height = msg.Height
+
+		headerHeight := lipgloss.Height(m.viewportHeaderView())
+		footerHeight := lipgloss.Height(m.viewportFooterView())
+		verticalMarginHeight := headerHeight + footerHeight
+
+		if !m.viewportReady {
+			// Since this program is using the full size of the viewport we
+			// need to wait until we've received the window dimensions before
+			// we can initialize the viewport. The initial dimensions come in
+			// quickly, though asynchronously, which is why we wait for them
+			// here.
+			m.viewport = viewport.New(msg.Width, msg.Height-verticalMarginHeight)
+			m.viewport.YPosition = headerHeight
+			m.viewportReady = true
+		} else {
+			m.viewport.Width = msg.Width
+			m.viewport.Height = msg.Height - verticalMarginHeight
+		}
 
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -56,43 +74,50 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "q", "ctrl+c":
 			return m, tea.Quit
 		case "d":
-			row, err := m.getSelectedRow()
-			if err != nil {
-				m.err = fmt.Errorf("failed to get selected row: %w", err)
-			}
+			if !m.showViewport {
+				row, err := m.getSelectedRow()
+				if err != nil {
+					m.err = fmt.Errorf("failed to get selected row: %w", err)
+				}
 
-			command, err := createDescribeCommand(row)
-			if err != nil {
-				m.err = fmt.Errorf("failed to create describe command: %w", err)
-			}
+				command, err := createDescribeCommand(row)
+				if err != nil {
+					m.err = fmt.Errorf("failed to create describe command: %w", err)
+				}
 
-			result, err := m.client.Get(command)
-			if err != nil {
-				m.err = fmt.Errorf("failed to get resource with command '%s': %w", command, err)
-			}
+				result, err := m.client.Get(command)
+				if err != nil {
+					m.err = fmt.Errorf("failed to get resource with command '%s': %w", command, err)
+				}
 
-			m.viewport.SetContent(result)
-			m.showViewport = true
+				m.viewport.SetContent(result)
+				m.viewport.GotoTop()
+				m.showViewport = true
+			}
 		case "enter", "y":
-			row, err := m.getSelectedRow()
-			if err != nil {
-				m.err = fmt.Errorf("failed to get selected row: %w", err)
-			}
+			if !m.showViewport {
 
-			command, err := createGetYamlCommand(row.Kind, "", row.ApiVersion, row.Name, row.Namespace)
-			if err != nil {
-				m.err = fmt.Errorf("failed to create kubectl command: %w", err)
-				return m, nil
-			}
+				row, err := m.getSelectedRow()
+				if err != nil {
+					m.err = fmt.Errorf("failed to get selected row: %w", err)
+				}
 
-			result, err := m.client.Get(command)
-			if err != nil {
-				m.err = fmt.Errorf("failed to get resource with command '%s': %w", command, err)
-				return m, nil
-			}
+				command, err := createGetYamlCommand(row.Kind, "", row.ApiVersion, row.Name, row.Namespace)
+				if err != nil {
+					m.err = fmt.Errorf("failed to create kubectl command: %w", err)
+					return m, nil
+				}
 
-			m.viewport.SetContent(result)
-			m.showViewport = true
+				result, err := m.client.Get(command)
+				if err != nil {
+					m.err = fmt.Errorf("failed to get resource with command '%s': %w", command, err)
+					return m, nil
+				}
+
+				m.viewport.SetContent(result)
+				m.viewport.GotoTop()
+				m.showViewport = true
+			}
 		case "up", "k":
 			if m.cursor > 0 {
 				m.cursor--
