@@ -55,7 +55,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.showViewport = false
 		case "q", "ctrl+c":
 			return m, tea.Quit
-		case "enter":
+		case "enter", "y":
 			r := m.rows[m.cursor]
 
 			row, err := toRow(r)
