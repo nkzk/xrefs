@@ -29,3 +29,21 @@ Customize shortcut (have to not conflict with existing k9s shortcuts)
 ```sh
 --shortcut "Shift+G"
 ```
+
+### other
+
+While not really made for it, you could use this without k9s
+
+```sh
+name="example"
+namespace="default"
+resourceName="application" # this is "kind"
+resourceGroup="group.domain.com" # api group
+resourceVersion="v1alpha1"
+```
+
+
+```sh
+xrefs --name=$name -namespace=$namespace -resourceName=$resourceName -resourceGroup=$resourceGroup -resourceVersion=$resourceVersion
+```
+
