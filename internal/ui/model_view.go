@@ -26,7 +26,7 @@ var (
 )
 
 func (m *Model) View() string {
-	tableHelp := "\nd: describe, y/enter: yaml, arrow-up/k: up, arrow-down/j: down, end/G: bottom, home/g: top"
+	tableHelp := "\nd: describe, y/enter: yaml, arrow-up/k: up, arrow-down/j: down, G: bottom, g: top"
 
 	s := "\n" + fmt.Sprintf("%s.%s.%s/%s -n %s | %s | %s\n", m.config.ResourceName, m.config.ResourceVersion, m.config.ResourceGroup, m.config.Name, m.config.Namespace, m.config.ColComposition, m.config.ColCompositionRevision)
 
@@ -39,7 +39,7 @@ func (m *Model) View() string {
 	}
 
 	if len(m.rows) == 0 {
-		return "\nThis one doesnt have any resource references ¯\\_(ツ)_/¯\nTry another one\n\n(esc/q to go back)\n"
+		return "\nThis one doesnt have any resource references ¯\\_(ツ)_/¯\nTry another one\n\n(press q to go back)\n"
 	}
 
 	if m.showViewport {
