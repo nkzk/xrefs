@@ -51,7 +51,7 @@ plugins:
     - --colComposition
     - $COL-COMPOSITION
     - --colCompositionRevision
-    - $COL-COMPOSITION_REVISION
+    - $COL-COMPOSITIONREVISION
     background: false
     `, pluginKey, shortCut, command)
 
@@ -144,7 +144,7 @@ func appendPlugin(doc []byte, key, shortcut, cmd, desc string, background bool, 
 			"--resourceName", "$RESOURCE_NAME",
 			"--resourceVersion", "$RESOURCE_VERSION",
 			"--colComposition", "$COL-COMPOSITION",
-			"--colCompositionRevision", "$COL-COMPOSITION_REVISION",
+			"--colCompositionRevision", "$COL-COMPOSITIONREVISION",
 		},
 	}
 
