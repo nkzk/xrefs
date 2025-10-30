@@ -124,10 +124,10 @@ func getRows(yamlString string) ([]row, error) {
 			Kind:         resourceRef.Kind,
 			ApiVersion:   resourceRef.ApiVersion,
 			Name:         resourceRef.Name,
-			Synced:       "True",
-			SyncedReason: "Yes",
-			Ready:        "True",
-			ReadyReason:  "Yes",
+			Synced:       "",
+			SyncedReason: "",
+			Ready:        "",
+			ReadyReason:  "",
 		})
 	}
 
