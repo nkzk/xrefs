@@ -82,7 +82,7 @@ func (m *Model) Init() tea.Cmd {
 		}
 	}
 	return tea.Batch(
-		extractResourceRefs(xr),
+		extractResourceRefs(xr, m.client),
 		tick(),
 	)
 }
@@ -134,12 +134,20 @@ func getRows(yamlString string) ([]row, error) {
 	return result, nil
 }
 
-func extractResourceRefs(yamlString string) tea.Cmd {
+func extractResourceRefs(yamlString string, client Client) tea.Cmd {
 	return func() tea.Msg {
-		refs, err := getRows(yamlString)
+		resourceRows, err := getRows(yamlString)
 		if err != nil {
 			return errMsg{err: err}
 		}
-		return refs
+
+		for i, row := range resourceRows {
+			resourceRows[i], err = client.UpdateRowStatus(row)
+			if err != nil {
+				return errMsg{err: fmt.Errorf("failed to update status: %w", err)}
+			}
+		}
+
+		return resourceRows
 	}
 }
