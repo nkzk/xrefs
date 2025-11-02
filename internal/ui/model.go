@@ -82,7 +82,7 @@ func (m *Model) Init() tea.Cmd {
 		}
 	}
 	return tea.Batch(
-		extractResourceRefs(xr),
+		extractResourceRefs(xr, m.client),
 		tick(),
 	)
 }
@@ -124,22 +124,49 @@ func getRows(yamlString string) ([]row, error) {
 			Kind:         resourceRef.Kind,
 			ApiVersion:   resourceRef.ApiVersion,
 			Name:         resourceRef.Name,
-			Synced:       "True",
-			SyncedReason: "Yes",
-			Ready:        "True",
-			ReadyReason:  "Yes",
+			Synced:       "",
+			SyncedReason: "",
+			Ready:        "",
+			ReadyReason:  "",
 		})
 	}
 
 	return result, nil
 }
 
-func extractResourceRefs(yamlString string) tea.Cmd {
+func extractResourceRefs(yamlString string, client Client) tea.Cmd {
 	return func() tea.Msg {
-		refs, err := getRows(yamlString)
+		resourceRows, err := getRows(yamlString)
 		if err != nil {
 			return errMsg{err: err}
 		}
-		return refs
+
+		for i, row := range resourceRows {
+			resourceRows[i], err = client.UpdateRowStatus(row)
+			if err != nil {
+				return errMsg{err: fmt.Errorf("failed to update status: %w", err)}
+			}
+		}
+
+		return resourceRows
 	}
+}
+
+func getStatus(cmdResult string) (*status, error) {
+	type s struct {
+		Status status `json:"status" yaml:"status"`
+	}
+
+	result := s{}
+
+	err := yaml.Unmarshal([]byte(cmdResult), &result)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal command result: %w", err)
+	}
+
+	if result.Status.Conditions == nil {
+		result.Status.Conditions = []condition{}
+	}
+
+	return &result.Status, nil
 }

@@ -66,3 +66,13 @@ type XR struct {
 		} `json:"crossplane" yaml:"crossplane"`
 	} `json:"spec" yaml:"spec"`
 }
+
+type condition struct {
+	Status        string `json:"status" yaml:"status"`
+	ConditionType string `json:"type" yaml:"type"`
+	Reason        string `json:"reason" yaml:"reason"`
+}
+
+type status struct {
+	Conditions []condition `json:"conditions" yaml:"conditions"`
+}
