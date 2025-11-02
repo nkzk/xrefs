@@ -151,3 +151,22 @@ func extractResourceRefs(yamlString string, client Client) tea.Cmd {
 		return resourceRows
 	}
 }
+
+func getStatus(cmdResult string) (*status, error) {
+	type s struct {
+		Status status `json:"status" yaml:"status"`
+	}
+
+	result := s{}
+
+	err := yaml.Unmarshal([]byte(cmdResult), &result)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal command result: %w", err)
+	}
+
+	if result.Status.Conditions == nil {
+		result.Status.Conditions = []condition{}
+	}
+
+	return &result.Status, nil
+}

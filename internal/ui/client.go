@@ -5,12 +5,11 @@ import (
 	"strings"
 
 	"github.com/nkzk/xrefs/internal/utils"
-	"gopkg.in/yaml.v3"
 )
 
 type Client interface {
 	GetXR(command string) (string, error)
-	Get(command string) (string, error)
+	Run(command string) (string, error)
 	UpdateRowStatus(r row) (row, error)
 }
 
@@ -155,7 +154,7 @@ status:
 		"\n"), nil
 }
 
-func (m mock) Get(command string) (string, error) {
+func (m mock) Run(command string) (string, error) {
 	// if describe
 	if strings.Contains(command, "describe") {
 		return `
@@ -227,7 +226,61 @@ Events:                      <none>
 	}
 
 	// if yaml
-	return `
+	return examplePod, nil
+}
+
+func (m mock) UpdateRowStatus(r row) (row, error) {
+	r.Ready = "no"
+	r.ReadyReason = "that's life"
+	r.Synced = "yes"
+	r.SyncedReason = "picked my self up and got back in the race"
+
+	return r, nil
+}
+
+func (k kubectl) UpdateRowStatus(r row) (row, error) {
+	command, err := createGetYamlCommand(r.Kind, "", r.ApiVersion, r.Name, r.Namespace)
+	if err != nil {
+		return row{}, fmt.Errorf("failed to create command: %w", err)
+	}
+
+	cmdResult, err := k.Run(command)
+	if err != nil {
+		return row{}, fmt.Errorf("failed to run command: %w", err)
+	}
+
+	status, err := getStatus(cmdResult)
+	if err != nil {
+		return row{}, fmt.Errorf("failed to get status from command result: %w", err)
+	}
+
+	for _, condition := range status.Conditions {
+		switch condition.ConditionType {
+		case "Ready":
+			r.Ready = condition.Status
+			r.ReadyReason = condition.Reason
+		case "Synced":
+			r.Synced = condition.Status
+			r.SyncedReason = condition.Reason
+		}
+	}
+
+	return r, nil
+}
+
+// Runs the specified `command` and returns output as string and error
+func (k kubectl) Run(command string) (string, error) {
+	cmd := strings.Fields(command)
+
+	output, err := utils.RunCommand(cmd[0], cmd[1:]...)
+	if err != nil {
+		return "", fmt.Errorf("failed to get resource: %v", err)
+	}
+
+	return string(output), nil
+}
+
+var examplePod = `
 apiVersion: v1
 kind: Pod
 metadata:
@@ -409,67 +462,4 @@ status:
   - ip: 10.244.0.3
   qosClass: Burstable
   startTime: "2025-10-05T14:03:16Z"
-`, nil
-}
-
-func (m mock) UpdateRowStatus(r row) (row, error) {
-	r.Ready = "no"
-	r.ReadyReason = "that's life"
-	r.Synced = "yes"
-	r.SyncedReason = "picked my self up and got back in the race"
-
-	return r, nil
-}
-
-func (k kubectl) UpdateRowStatus(r row) (row, error) {
-	command, err := createGetYamlCommand(r.Kind, "", r.ApiVersion, r.Name, r.Namespace)
-	if err != nil {
-		return row{}, fmt.Errorf("failed to create command: %w", err)
-	}
-
-	result, err := k.Get(command)
-	if err != nil {
-		return row{}, fmt.Errorf("failed to run command: %w", err)
-	}
-
-	type condition struct {
-		Status        string `json:"status" yaml:"status"`
-		ConditionType string `json:"type" yaml:"type"`
-		Reason        string `json:"reason" yaml:"reason"`
-	}
-
-	type status struct {
-		Conditions []condition `json:"conditions" yaml:"conditions"`
-	}
-
-	resultStatus := status{}
-
-	err = yaml.Unmarshal([]byte(result), &resultStatus)
-	if err != nil {
-		return row{}, fmt.Errorf("failed to unmarshal command result: %w", err)
-	}
-
-	for _, condition := range resultStatus.Conditions {
-		switch condition.ConditionType {
-		case "Ready":
-			r.Ready = condition.Status
-			r.ReadyReason = condition.Reason
-		case "Synced":
-			r.Synced = condition.Status
-			r.SyncedReason = condition.Reason
-		}
-	}
-
-	return r, nil
-}
-
-func (k kubectl) Get(command string) (string, error) {
-	cmd := strings.Fields(command)
-
-	output, err := utils.RunCommand(cmd[0], cmd[1:]...)
-	if err != nil {
-		return "", fmt.Errorf("failed to get resource: %v", err)
-	}
-
-	return string(output), nil
-}
+`

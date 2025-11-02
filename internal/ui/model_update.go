@@ -85,7 +85,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.err = fmt.Errorf("failed to create describe command: %w", err)
 				}
 
-				result, err := m.client.Get(command)
+				result, err := m.client.Run(command)
 				if err != nil {
 					m.err = fmt.Errorf("failed to get resource with command '%s': %w", command, err)
 				}
@@ -108,7 +108,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, nil
 				}
 
-				result, err := m.client.Get(command)
+				result, err := m.client.Run(command)
 				if err != nil {
 					m.err = fmt.Errorf("failed to get resource with command '%s': %w", command, err)
 					return m, nil
