@@ -41,26 +41,52 @@ func NewModel(client Client, config config.Config) *Model {
 	rows := [][]string{}
 
 	re := lipgloss.NewRenderer(os.Stdout)
-	baseStyle := re.NewStyle().Padding(0, 1)
-	selectedStyle := baseStyle.Foreground(lipgloss.Color("#01BE85")).Background(lipgloss.Color("#00E2C7"))
 
+	// colors
+	red := lipgloss.Color("#FF5555")
+	green := lipgloss.Color("#00FF7F")
+	selHue := lipgloss.Color("#A1D6FE") // used as default unselected text AND selected bg
+	baseStyle := re.NewStyle().
+		Padding(0, 1).
+		Bold(true).
+		Foreground(selHue)
 	m := &Model{
 		viewport: viewport.New(0, 0),
 		client:   client,
+		rows:     rows,
 	}
+
+	headerStyle := baseStyle.Foreground(lipgloss.Color("#ffffff")).Bold(true)
 
 	t := table.New().
 		Headers(headers...).
 		Rows(rows...).
 		Border(lipgloss.NormalBorder()).
-		BorderStyle(re.NewStyle().Foreground(lipgloss.Color("238"))).
-		StyleFunc(func(row, col int) lipgloss.Style {
-			if row == m.cursor {
-				return selectedStyle
+		BorderStyle(re.NewStyle().Foreground(lipgloss.Color("#2f2f2fff"))).
+		BorderRow(false).
+		BorderColumn(false).
+		StyleFunc(func(r, c int) lipgloss.Style {
+			if r == table.HeaderRow {
+				return headerStyle
 			}
-			return baseStyle
+			s := baseStyle
+
+			if r >= 0 && r < len(m.rows) && c >= 0 && c < len(m.rows[r]) {
+				switch m.rows[r][c] {
+				case "False", "no":
+					s = s.Foreground(red).Bold(true)
+				case "True", "yes":
+					s = s.Foreground(green).Bold(true)
+				}
+			}
+
+			if r == m.cursor {
+				s = s.Background(selHue).Foreground(lipgloss.Color("#000000")).Bold(true)
+			}
+
+			return s
 		}).
-		Border(lipgloss.ThickBorder())
+		Border(lipgloss.HiddenBorder())
 
 	m.config = config
 	m.table = t
