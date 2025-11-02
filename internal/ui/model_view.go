@@ -25,10 +25,16 @@ var (
 	}()
 )
 
-func (m *Model) View() string {
-	tableHelp := "\nd: describe, y/enter: yaml, arrow-up/k: up, arrow-down/j: down, G: bottom, g: top"
+func topText(m *Model) string {
+	return fmt.Sprintf("%s\n", m.config.ColCompositionRevision)
+}
 
-	s := "\n" + fmt.Sprintf("%s.%s.%s/%s -n %s | %s | %s\n", m.config.ResourceName, m.config.ResourceVersion, m.config.ResourceGroup, m.config.Name, m.config.Namespace, m.config.ColComposition, m.config.ColCompositionRevision)
+func (m *Model) View() string {
+	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFFFF")).Faint(true).PaddingLeft(2)
+	tableHelp := helpStyle.Render("\nd: describe\ny/enter: yaml\narrow-up/k: up\narrow-down/j: down\nG: bottom\ng: top")
+
+	topTextStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#A1D6FE")).Faint(true).PaddingLeft(2)
+	s := "\n" + topTextStyle.Render(topText(m))
 
 	if m.err != nil {
 		return "could not render view cause of error:\n" + m.err.Error()
@@ -77,11 +83,12 @@ func highlightText(src string) string {
 
 	return buf.String()
 }
+
 func highlightYAML(src string) string {
 	var buf bytes.Buffer
 
 	// styles: try "dracula", "github", "monokai", "solarized-dark", etc.
-	if err := quick.Highlight(&buf, src, "yaml", "terminal16m", "github"); err != nil {
+	if err := quick.Highlight(&buf, src, "yaml", "terminal", "github"); err != nil {
 		return src
 	}
 
