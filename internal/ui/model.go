@@ -1,9 +1,9 @@
 package ui
 
 import (
-	"errors"
 	"fmt"
 	"os"
+	"sync"
 
 	viewport "github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -168,17 +168,17 @@ func extractResourceRefs(yamlString string, client Client) tea.Cmd {
 			return errMsg{err: err}
 		}
 
+		var wg sync.WaitGroup
 		for i, row := range resourceRows {
-			resourceRows[i], err = client.UpdateRowStatus(row)
-			if err != nil {
-				if errors.Is(err, errFailedToUpdateRowStatus) {
-					// should log
-					continue
-				}
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
 
-				return errMsg{err: fmt.Errorf("failed to update status: %w", err)}
-			}
+				resourceRows[i], _ = client.UpdateRowStatus(row)
+			}()
 		}
+
+		wg.Wait()
 
 		return resourceRows
 	}

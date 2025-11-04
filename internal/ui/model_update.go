@@ -110,7 +110,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				result, err := m.client.Run(command)
 				if err != nil {
-					m.err = fmt.Errorf("failed to get resource with command '%s': %w", command, err)
+					m.err = fmt.Errorf("failed to get reource with command '%s': %w", command, err)
 					return m, nil
 				}
 

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/nkzk/xrefs/internal/utils"
 )
@@ -231,10 +232,11 @@ Events:                      <none>
 }
 
 func (m mock) UpdateRowStatus(r row) (row, error) {
-	r.Ready = "no"
+	time.Sleep(1 * time.Second)
+	r.Ready = "False"
 	r.ReadyReason = "that's life"
-	r.Synced = "yes"
-	r.SyncedReason = "picked my self up and got back in the race"
+	r.Synced = "True"
+	r.SyncedReason = "nice"
 
 	return r, nil
 }
