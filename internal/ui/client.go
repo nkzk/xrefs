@@ -232,7 +232,7 @@ Events:                      <none>
 }
 
 func (m mock) UpdateRowStatus(r row) (row, error) {
-	time.Sleep(1 * time.Second)
+	time.Sleep(2 * time.Second)
 	r.Ready = "False"
 	r.ReadyReason = "that's life"
 	r.Synced = "True"

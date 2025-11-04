@@ -109,12 +109,12 @@ func (m *Model) Init() tea.Cmd {
 		}
 	}
 	return tea.Batch(
-		extractResourceRefs(xr, m.client),
+		getResourceRefs(xr),
 		tick(),
 	)
 }
 
-func (m *Model) applyData(newRows []row) {
+func (m *Model) saveRowsToModel(newRows []row) {
 	if len(newRows) == 0 {
 		return
 	}
@@ -161,24 +161,31 @@ func getRows(yamlString string) ([]row, error) {
 	return result, nil
 }
 
-func extractResourceRefs(yamlString string, client Client) tea.Cmd {
+func updateRowStatus(rows []row, client Client) tea.Cmd {
+	return func() tea.Msg {
+		var wg sync.WaitGroup
+
+		for i, row := range rows {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
+				rows[i], _ = client.UpdateRowStatus(row)
+			}()
+		}
+
+		wg.Wait()
+
+		return rows
+	}
+}
+
+func getResourceRefs(yamlString string) tea.Cmd {
 	return func() tea.Msg {
 		resourceRows, err := getRows(yamlString)
 		if err != nil {
 			return errMsg{err: err}
 		}
-
-		var wg sync.WaitGroup
-		for i, row := range resourceRows {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-
-				resourceRows[i], _ = client.UpdateRowStatus(row)
-			}()
-		}
-
-		wg.Wait()
 
 		return resourceRows
 	}

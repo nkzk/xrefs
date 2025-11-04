@@ -37,12 +37,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		return m, tea.Batch(
-			extractResourceRefs(xr, m.client),
+			getResourceRefs(xr),
 			tick(),
 		)
 
 	case []row:
-		m.applyData(msg)
+		m.saveRowsToModel(msg)
+		return m, updateRowStatus(msg, m.client)
 
 	case tea.WindowSizeMsg:
 		if m.table != nil {
