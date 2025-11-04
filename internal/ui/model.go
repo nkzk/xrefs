@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -170,6 +171,11 @@ func extractResourceRefs(yamlString string, client Client) tea.Cmd {
 		for i, row := range resourceRows {
 			resourceRows[i], err = client.UpdateRowStatus(row)
 			if err != nil {
+				if errors.Is(err, errFailedToUpdateRowStatus) {
+					// should log
+					continue
+				}
+
 				return errMsg{err: fmt.Errorf("failed to update status: %w", err)}
 			}
 		}

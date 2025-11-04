@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -238,20 +239,22 @@ func (m mock) UpdateRowStatus(r row) (row, error) {
 	return r, nil
 }
 
+var errFailedToUpdateRowStatus = errors.New("failed to update row status")
+
 func (k kubectl) UpdateRowStatus(r row) (row, error) {
 	command, err := createGetYamlCommand(r.Kind, "", r.ApiVersion, r.Name, r.Namespace)
 	if err != nil {
-		return row{}, fmt.Errorf("failed to create command: %w", err)
+		return r, fmt.Errorf("%w: failed to create command: %w", errFailedToUpdateRowStatus, err)
 	}
 
 	cmdResult, err := k.Run(command)
 	if err != nil {
-		return row{}, fmt.Errorf("failed to run command: %w", err)
+		return r, fmt.Errorf("%w: failed to run command: %w", errFailedToUpdateRowStatus, err)
 	}
 
 	status, err := getStatus(cmdResult)
 	if err != nil {
-		return row{}, fmt.Errorf("failed to get status from command result: %w", err)
+		return r, fmt.Errorf("%w: failed to get status from command result: %w", errFailedToUpdateRowStatus, err)
 	}
 
 	for _, condition := range status.Conditions {
