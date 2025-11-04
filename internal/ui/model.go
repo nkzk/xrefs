@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"os"
+	"reflect"
 	"sync"
 
 	viewport "github.com/charmbracelet/bubbles/viewport"
@@ -13,10 +14,13 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// maps a resourceref.Name to a status
+
 type Model struct {
 	config        config.Config
 	table         *table.Table
 	rows          [][]string
+	rowStatus     *sync.Map
 	cursor        int
 	err           error
 	client        Client
@@ -91,6 +95,7 @@ func NewModel(client Client, config config.Config) *Model {
 
 	m.config = config
 	m.table = t
+	m.rowStatus = &sync.Map{}
 	return m
 }
 
@@ -109,7 +114,7 @@ func (m *Model) Init() tea.Cmd {
 		}
 	}
 	return tea.Batch(
-		getResourceRefs(xr),
+		getResourceRefs(xr, m.rowStatus),
 		tick(),
 	)
 }
@@ -119,14 +124,17 @@ func (m *Model) saveRowsToModel(newRows []row) {
 		return
 	}
 
-	m.table.ClearRows()
-	m.rows = [][]string{}
-
 	rows := make([][]string, 0, len(newRows))
 	for _, r := range newRows {
 		rows = append(rows, toStringRow(r))
 	}
 
+	if reflect.DeepEqual(m.rows, rows) { // no changes
+
+	}
+
+	m.rows = [][]string{}
+	m.table.ClearRows()
 	m.rows = rows
 	m.table.Rows(rows...)
 }
@@ -137,7 +145,7 @@ func (m *Model) getSelectedRow() (row, error) {
 	return toRow(r)
 }
 
-func getRows(yamlString string) ([]row, error) {
+func getRows(yamlString string, rs *sync.Map) ([]row, error) {
 	xr := &XR{}
 	err := yaml.Unmarshal([]byte(yamlString), xr)
 	if err != nil {
@@ -146,48 +154,55 @@ func getRows(yamlString string) ([]row, error) {
 
 	var result []row
 	for _, resourceRef := range xr.Spec.Crossplane.ResourceRefs {
+		s, exists := rs.Load(resourceRef.Name)
+		if !exists {
+			s = status{}
+		}
+
+		s, ok := s.(status)
+		if !ok {
+			s = status{}
+		}
+
 		result = append(result, row{
 			Namespace:    xr.Metadata.Namespace,
 			Kind:         resourceRef.Kind,
 			ApiVersion:   resourceRef.ApiVersion,
 			Name:         resourceRef.Name,
-			Synced:       "",
-			SyncedReason: "",
-			Ready:        "",
-			ReadyReason:  "",
+			Synced:       s.(status).Conditions.Get("Synced").Status,
+			SyncedReason: s.(status).Conditions.Get("Synced").Reason,
+			Ready:        s.(status).Conditions.Get("Ready").Status,
+			ReadyReason:  s.(status).Conditions.Get("Ready").Reason,
 		})
 	}
 
 	return result, nil
 }
 
-func updateRowStatus(rows []row, client Client) tea.Cmd {
+func updateStatusCmd(rs *sync.Map, rows []row, client Client) tea.Cmd {
 	return func() tea.Msg {
 		var wg sync.WaitGroup
-
-		for i, row := range rows {
+		for _, r := range rows {
 			wg.Add(1)
-			go func() {
-				defer wg.Done()
-
-				rows[i], _ = client.UpdateRowStatus(row)
-			}()
+			go func(row row) {
+				_ = client.UpdateRowStatus(rs, row)
+			}(r)
 		}
 
 		wg.Wait()
 
-		return rows
+		return statusMsg(rows)
 	}
 }
 
-func getResourceRefs(yamlString string) tea.Cmd {
+func getResourceRefs(yamlString string, rs *sync.Map) tea.Cmd {
 	return func() tea.Msg {
-		resourceRows, err := getRows(yamlString)
+		resourceRows, err := getRows(yamlString, rs)
 		if err != nil {
 			return errMsg{err: err}
 		}
 
-		return resourceRows
+		return resourceRefMsg(resourceRows)
 	}
 }
 

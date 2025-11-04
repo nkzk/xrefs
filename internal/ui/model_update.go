@@ -12,6 +12,8 @@ import (
 const refreshInterval = 7 * time.Second
 
 type tickMsg time.Time
+type statusMsg []row
+type resourceRefMsg []row
 
 func tick() tea.Cmd {
 	return tea.Tick(refreshInterval, func(t time.Time) tea.Msg {
@@ -37,14 +39,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		return m, tea.Batch(
-			getResourceRefs(xr),
+			getResourceRefs(xr, m.rowStatus),
 			tick(),
 		)
 
-	case []row:
-		m.saveRowsToModel(msg)
-		return m, updateRowStatus(msg, m.client)
-
+	case resourceRefMsg:
+		m.saveRowsToModel([]row(msg))
+		return m, updateStatusCmd(m.rowStatus, []row(msg), m.client)
 	case tea.WindowSizeMsg:
 		if m.table != nil {
 			m.table = m.table.Width(msg.Width).Height(msg.Height)
