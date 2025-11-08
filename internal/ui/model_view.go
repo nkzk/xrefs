@@ -40,11 +40,12 @@ func (m *Model) View() string {
 		return "could not render view cause of error:\n" + m.err.Error()
 	}
 
-	if m.table == nil {
+	if !m.loaded {
 		return "\nloading…\n"
 	}
 
 	if len(m.rows) == 0 {
+	m.loaded = false
 		return "\nThis one doesnt have any resource references ¯\\_(ツ)_/¯\nTry another one\n\n(press q to go back)\n"
 	}
 

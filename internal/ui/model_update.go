@@ -26,7 +26,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if m.debugWriter != nil {
 		spew.Fdump(m.debugWriter, msg)
 	}
-	
+
 	switch msg := msg.(type) {
 	case tickMsg:
 		var xr string
@@ -55,8 +55,18 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(cmds...)
 
 	case resourceRefMsg:
-		m.saveRowsToModel([]row(msg))
-		return m, updateStatusCmd(m.rowStatus, []row(msg), m.client)
+		m.loaded = true
+		var cmds []tea.Cmd
+		_ = m.saveRowsToModel([]row(msg))
+
+		if !m.updating {
+			m.updating = true
+			cmds = append(cmds, m.updateStatusCmd(m.rowStatus, []row(msg), m.client))
+		}
+		return m, tea.Batch(cmds...)
+
+	case statusMsg:
+		return m, m.saveRowsToModel([]row(msg))
 	case tea.WindowSizeMsg:
 		if m.table != nil {
 			m.table = m.table.Width(msg.Width).Height(msg.Height)
@@ -67,11 +77,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		verticalMarginHeight := headerHeight + footerHeight
 
 		if !m.viewportReady {
-			// Since this program is using the full size of the viewport we
-			// need to wait until we've received the window dimensions before
-			// we can initialize the viewport. The initial dimensions come in
-			// quickly, though asynchronously, which is why we wait for them
-			// here.
 			m.viewport = viewport.New(msg.Width, msg.Height-verticalMarginHeight)
 			m.viewport.YPosition = headerHeight
 			m.viewportReady = true

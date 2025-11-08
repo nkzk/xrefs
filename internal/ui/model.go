@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"reflect"
 	"sync"
 
 	viewport "github.com/charmbracelet/bubbles/viewport"
@@ -20,6 +19,7 @@ import (
 type Model struct {
 	config        config.Config
 	table         *table.Table
+	loaded        bool
 	rows          [][]string
 	rowStatus     *sync.Map
 	updating      bool
@@ -106,45 +106,83 @@ func NewModel(client Client, config config.Config) *Model {
 }
 
 func (m *Model) Init() tea.Cmd {
-	command, err := createGetYamlCommand(m.config.ResourceName, m.config.ResourceGroup, m.config.ResourceVersion, m.config.Name, m.config.Namespace)
-	if err != nil {
-		return func() tea.Msg {
-			return errMsg{err: fmt.Errorf("failed to get generate kubectl command %s, %w", command, err)}
-		}
-	}
-
-	xr, err := m.client.GetXR(command)
-	if err != nil {
-		return func() tea.Msg {
-			return errMsg{err: fmt.Errorf("failed to get XR %s, %w", command, err)}
-		}
-	}
 	return tea.Batch(
-		getResourceRefs(xr, m.rowStatus),
-		tick(),
-	)
+		func() tea.Msg {
+			command, err := createGetYamlCommand(
+				m.config.ResourceName,
+				m.config.ResourceGroup,
+				m.config.ResourceVersion,
+				m.config.Name,
+				m.config.Namespace)
+			if err != nil {
+				return func() tea.Msg {
+					return errMsg{
+						err: fmt.Errorf("failed to get generate kubectl command %s, %w",
+							command, err),
+					}
+				}
+			}
+
+			xr, err := m.client.GetXR(command)
+			if err != nil {
+				return func() tea.Msg {
+					return errMsg{
+						err: fmt.Errorf("failed to get XR %s, %w",
+							command, err),
+					}
+				}
+			}
+
+			resourceRows, err := getRows(xr, m.rowStatus)
+			if err != nil {
+				return func() tea.Msg {
+					return errMsg{err: err}
+				}
+			}
+
+			return resourceRefMsg(resourceRows)
+
+		},
+		tick())
 }
 
-func (m *Model) saveRowsToModel(newRows []row) {
-	if len(newRows) == 0 {
-		return
+func (m *Model) saveRowsToModel(rows []row) tea.Cmd {
+	if len(rows) == 0 {
+		m.loaded = true
+		return nil
 	}
 
-	rows := make([][]string, 0, len(newRows))
-	for _, r := range newRows {
-		rows = append(rows, toStringRow(r))
-	}
+	newRows := make([][]string, 0, len(rows))
+	for _, r := range rows {
+		ready, readyReason := "", ""
+		synced, syncedReason := "", ""
 
-	if reflect.DeepEqual(m.rows, rows) { // no changes
+		if s, ok := m.rowStatus.Load(r.Name); ok {
+			if rs, ok := s.(status); ok {
+				ready = rs.Conditions.Get("Ready").Status
+				readyReason = rs.Conditions.Get("Ready").Reason
+				synced = rs.Conditions.Get("Synced").Status
+				syncedReason = rs.Conditions.Get("Synced").Reason
+			}
+		}
 
+		r.Ready, r.ReadyReason = ready, readyReason
+		r.Synced, r.SyncedReason = synced, syncedReason
+
+		newRows = append(newRows, toStringRow(r))
 	}
 
 	m.rows = [][]string{}
 	m.table.ClearRows()
-	m.rows = rows
-	m.table.Rows(rows...)
+	m.rows = newRows
+	m.table.Rows(newRows...)
 
 	m.updating = false
+	m.loaded = true
+
+	return func() tea.Msg {
+		return resourceRefMsg(rows)
+	}
 }
 
 func (m *Model) getSelectedRow() (row, error) {
@@ -187,18 +225,19 @@ func getRows(yamlString string, rs *sync.Map) ([]row, error) {
 	return result, nil
 }
 
-func updateStatusCmd(rs *sync.Map, rows []row, client Client) tea.Cmd {
+func (m *Model) updateStatusCmd(rs *sync.Map, rows []row, client Client) tea.Cmd {
 	return func() tea.Msg {
 		var wg sync.WaitGroup
 		for _, r := range rows {
 			wg.Add(1)
 			go func(row row) {
+				defer wg.Done()
 				_ = client.UpdateRowStatus(rs, row)
 			}(r)
 		}
 
 		wg.Wait()
-
+		m.updating = false
 		return statusMsg(rows)
 	}
 }
