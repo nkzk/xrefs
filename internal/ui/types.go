@@ -74,5 +74,17 @@ type condition struct {
 }
 
 type status struct {
-	Conditions []condition `json:"conditions" yaml:"conditions"`
+	Conditions conditions `json:"conditions" yaml:"conditions"`
+}
+
+type conditions []condition
+
+func (c conditions) Get(s string) condition {
+	for _, condition := range c {
+		if condition.ConditionType == s {
+			return condition
+		}
+	}
+
+	return condition{}
 }

@@ -7,11 +7,14 @@ import (
 	viewport "github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/davecgh/go-spew/spew"
 )
 
 const refreshInterval = 7 * time.Second
 
 type tickMsg time.Time
+type statusMsg []row
+type resourceRefMsg []row
 
 func tick() tea.Cmd {
 	return tea.Tick(refreshInterval, func(t time.Time) tea.Msg {
@@ -20,30 +23,50 @@ func tick() tea.Cmd {
 }
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if m.debugWriter != nil {
+		spew.Fdump(m.debugWriter, msg)
+	}
+
 	switch msg := msg.(type) {
 	case tickMsg:
-		command, err := createGetYamlCommand(m.config.ResourceName, m.config.ResourceGroup, m.config.ResourceVersion, m.config.Name, m.config.Namespace)
-		if err != nil {
-			return m, func() tea.Msg {
-				return errMsg{err: fmt.Errorf("failed to create kubectl command, %w", err)}
+		var xr string
+		var cmds []tea.Cmd
+		cmds = append(cmds, tick())
+
+		if !m.updating {
+			m.updating = true
+			command, err := createGetYamlCommand(m.config.ResourceName, m.config.ResourceGroup, m.config.ResourceVersion, m.config.Name, m.config.Namespace)
+			if err != nil {
+				return m, func() tea.Msg {
+					return errMsg{err: fmt.Errorf("failed to create kubectl command, %w", err)}
+				}
 			}
+
+			xr, err = m.client.GetXR(command)
+			if err != nil {
+				return m, func() tea.Msg {
+					return errMsg{err: fmt.Errorf("failed to get XR, %w", err)}
+				}
+			}
+
+			cmds = append(cmds, getResourceRefs(xr, m.rowStatus))
 		}
 
-		xr, err := m.client.GetXR(command)
-		if err != nil {
-			return m, func() tea.Msg {
-				return errMsg{err: fmt.Errorf("failed to get XR, %w", err)}
-			}
+		return m, tea.Batch(cmds...)
+
+	case resourceRefMsg:
+		m.loaded = true
+		var cmds []tea.Cmd
+		_ = m.saveRowsToModel([]row(msg))
+
+		if !m.updating {
+			m.updating = true
+			cmds = append(cmds, m.updateStatusCmd(m.rowStatus, []row(msg), m.client))
 		}
+		return m, tea.Batch(cmds...)
 
-		return m, tea.Batch(
-			extractResourceRefs(xr, m.client),
-			tick(),
-		)
-
-	case []row:
-		m.applyData(msg)
-
+	case statusMsg:
+		return m, m.saveRowsToModel([]row(msg))
 	case tea.WindowSizeMsg:
 		if m.table != nil {
 			m.table = m.table.Width(msg.Width).Height(msg.Height)
@@ -54,11 +77,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		verticalMarginHeight := headerHeight + footerHeight
 
 		if !m.viewportReady {
-			// Since this program is using the full size of the viewport we
-			// need to wait until we've received the window dimensions before
-			// we can initialize the viewport. The initial dimensions come in
-			// quickly, though asynchronously, which is why we wait for them
-			// here.
 			m.viewport = viewport.New(msg.Width, msg.Height-verticalMarginHeight)
 			m.viewport.YPosition = headerHeight
 			m.viewportReady = true
@@ -110,7 +128,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				result, err := m.client.Run(command)
 				if err != nil {
-					m.err = fmt.Errorf("failed to get resource with command '%s': %w", command, err)
+					m.err = fmt.Errorf("failed to get reource with command '%s': %w", command, err)
 					return m, nil
 				}
 

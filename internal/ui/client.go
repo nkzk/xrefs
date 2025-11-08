@@ -1,8 +1,11 @@
 package ui
 
 import (
+	"errors"
 	"fmt"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/nkzk/xrefs/internal/utils"
 )
@@ -10,7 +13,7 @@ import (
 type Client interface {
 	GetXR(command string) (string, error)
 	Run(command string) (string, error)
-	UpdateRowStatus(r row) (row, error)
+	UpdateRowStatus(rs *sync.Map, r row) error
 }
 
 type mock struct{}
@@ -229,43 +232,47 @@ Events:                      <none>
 	return examplePod, nil
 }
 
-func (m mock) UpdateRowStatus(r row) (row, error) {
-	r.Ready = "no"
-	r.ReadyReason = "that's life"
-	r.Synced = "yes"
-	r.SyncedReason = "picked my self up and got back in the race"
+func (m mock) UpdateRowStatus(rs *sync.Map, r row) error {
+	time.Sleep(2 * time.Second)
+	rs.Store(r.Name, status{
+		Conditions: []condition{
+			{
+				ConditionType: "Ready",
+				Status:        "False",
+				Reason:        "thats life",
+			},
+			{
+				ConditionType: "Synced",
+				Status:        "True",
+				Reason:        "u the best",
+			},
+		},
+	})
 
-	return r, nil
+	return nil
 }
 
-func (k kubectl) UpdateRowStatus(r row) (row, error) {
+var errFailedToUpdateRowStatus = errors.New("failed to update row status")
+
+func (k kubectl) UpdateRowStatus(rs *sync.Map, r row) error {
 	command, err := createGetYamlCommand(r.Kind, "", r.ApiVersion, r.Name, r.Namespace)
 	if err != nil {
-		return row{}, fmt.Errorf("failed to create command: %w", err)
+		return fmt.Errorf("%w: failed to create command: %w", errFailedToUpdateRowStatus, err)
 	}
 
 	cmdResult, err := k.Run(command)
 	if err != nil {
-		return row{}, fmt.Errorf("failed to run command: %w", err)
+		return fmt.Errorf("%w: failed to run command: %w", errFailedToUpdateRowStatus, err)
 	}
 
-	status, err := getStatus(cmdResult)
+	s, err := getStatus(cmdResult)
 	if err != nil {
-		return row{}, fmt.Errorf("failed to get status from command result: %w", err)
+		return fmt.Errorf("%w: failed to get status from command result: %w", errFailedToUpdateRowStatus, err)
 	}
 
-	for _, condition := range status.Conditions {
-		switch condition.ConditionType {
-		case "Ready":
-			r.Ready = condition.Status
-			r.ReadyReason = condition.Reason
-		case "Synced":
-			r.Synced = condition.Status
-			r.SyncedReason = condition.Reason
-		}
-	}
+	rs.Store(r.Name, *s)
 
-	return r, nil
+	return nil
 }
 
 // Runs the specified `command` and returns output as string and error

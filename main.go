@@ -10,6 +10,7 @@ import (
 	"github.com/nkzk/xrefs/internal/config"
 	"github.com/nkzk/xrefs/internal/k9s"
 	"github.com/nkzk/xrefs/internal/ui"
+	"github.com/nkzk/xrefs/internal/utils"
 )
 
 func main() {
@@ -29,6 +30,9 @@ func main() {
 	flag.StringVar(&config.ColComposition, "colComposition", "unknown", "selected column composition")
 	flag.StringVar(&config.ColCompositionRevision, "colCompositionRevision", "unknown", "selected column composition revision")
 
+	flag.BoolVar(&config.Debug, "debug", false, "debug mode")
+	flag.StringVar(&config.DebugPath, "debugPath", "/tmp/xrefs/debug.log", "path to debug log file")
+
 	flag.Parse()
 
 	if install {
@@ -46,6 +50,15 @@ func main() {
 		client = ui.NewMockClient()
 	} else {
 		client = ui.NewKubectlClient()
+	}
+
+	if config.Debug {
+		file, err := utils.OpenFile(config.DebugPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to open %s: %w", config.DebugPath, err)
+		}
+
+		config.DebugWriter = file
 	}
 
 	if !config.IsValid() {
