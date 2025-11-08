@@ -7,6 +7,7 @@ import (
 	viewport "github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/davecgh/go-spew/spew"
 )
 
 const refreshInterval = 7 * time.Second
@@ -22,26 +23,36 @@ func tick() tea.Cmd {
 }
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if m.debugWriter != nil {
+		spew.Fdump(m.debugWriter, msg)
+	}
+	
 	switch msg := msg.(type) {
 	case tickMsg:
-		command, err := createGetYamlCommand(m.config.ResourceName, m.config.ResourceGroup, m.config.ResourceVersion, m.config.Name, m.config.Namespace)
-		if err != nil {
-			return m, func() tea.Msg {
-				return errMsg{err: fmt.Errorf("failed to create kubectl command, %w", err)}
+		var xr string
+		var cmds []tea.Cmd
+		cmds = append(cmds, tick())
+
+		if !m.updating {
+			m.updating = true
+			command, err := createGetYamlCommand(m.config.ResourceName, m.config.ResourceGroup, m.config.ResourceVersion, m.config.Name, m.config.Namespace)
+			if err != nil {
+				return m, func() tea.Msg {
+					return errMsg{err: fmt.Errorf("failed to create kubectl command, %w", err)}
+				}
 			}
+
+			xr, err = m.client.GetXR(command)
+			if err != nil {
+				return m, func() tea.Msg {
+					return errMsg{err: fmt.Errorf("failed to get XR, %w", err)}
+				}
+			}
+
+			cmds = append(cmds, getResourceRefs(xr, m.rowStatus))
 		}
 
-		xr, err := m.client.GetXR(command)
-		if err != nil {
-			return m, func() tea.Msg {
-				return errMsg{err: fmt.Errorf("failed to get XR, %w", err)}
-			}
-		}
-
-		return m, tea.Batch(
-			getResourceRefs(xr, m.rowStatus),
-			tick(),
-		)
+		return m, tea.Batch(cmds...)
 
 	case resourceRefMsg:
 		m.saveRowsToModel([]row(msg))

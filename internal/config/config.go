@@ -1,5 +1,7 @@
 package config
 
+import "io"
+
 type Config struct {
 	Name                   string
 	Namespace              string
@@ -9,6 +11,10 @@ type Config struct {
 	ColComposition         string
 	ColCompositionRevision string
 	Mock                   bool
+
+	Debug       bool
+	DebugWriter io.Writer
+	DebugPath   string
 }
 
 func (c Config) IsValid() bool {

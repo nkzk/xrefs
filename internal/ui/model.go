@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"reflect"
 	"sync"
@@ -21,12 +22,15 @@ type Model struct {
 	table         *table.Table
 	rows          [][]string
 	rowStatus     *sync.Map
+	updating      bool
 	cursor        int
 	err           error
 	client        Client
 	viewport      viewport.Model
 	viewportReady bool
 	showViewport  bool
+
+	debugWriter io.Writer
 }
 
 type row struct {
@@ -96,6 +100,8 @@ func NewModel(client Client, config config.Config) *Model {
 	m.config = config
 	m.table = t
 	m.rowStatus = &sync.Map{}
+	m.debugWriter = config.DebugWriter
+
 	return m
 }
 
@@ -137,6 +143,8 @@ func (m *Model) saveRowsToModel(newRows []row) {
 	m.table.ClearRows()
 	m.rows = rows
 	m.table.Rows(rows...)
+
+	m.updating = false
 }
 
 func (m *Model) getSelectedRow() (row, error) {
