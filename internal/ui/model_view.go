@@ -34,6 +34,7 @@ func (m *Model) View() string {
 		Align(lipgloss.Center).
 		Width(m.width).Render
 
+	// HEADER
 	header := headerStyle(fmt.Sprintf("%s\n", m.config.ColCompositionRevision))
 	if m.updating {
 		header = headerStyle(fmt.Sprintf("%s %s\n", m.config.ColCompositionRevision, m.spinner.View()))
@@ -48,7 +49,6 @@ func (m *Model) View() string {
 
 	var contentStyle = lipgloss.NewStyle().
 		Width(m.width).
-		// Height(m.height-lipgloss.Height(header)-lipgloss.Height(footer)).
 		Align(lipgloss.Center, lipgloss.Center).
 		Render
 	content := contentStyle(m.table.String())

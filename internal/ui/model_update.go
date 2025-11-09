@@ -79,7 +79,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 
 		if m.table != nil {
-			m.table = m.table.Width(msg.Width).Height(msg.Height)
+			m.table.Width(msg.Width - 5)
+			m.table.Height(msg.Height - 5)
 		}
 	case tea.KeyMsg:
 		switch {

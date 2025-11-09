@@ -78,10 +78,14 @@ func NewModel(client Client, config config.Config) *Model {
 	t := table.New().
 		Headers(headers...).
 		Rows(rows...).
-		Border(lipgloss.NormalBorder()).
-		BorderStyle(re.NewStyle().Foreground(lipgloss.Color("#2f2f2fff"))).
+		Border(lipgloss.RoundedBorder()).
+		// BorderStyle(re.NewStyle().Foreground(lipgloss.Color("#ffffffff"))).
 		BorderRow(false).
 		BorderColumn(false).
+		BorderTop(true).
+		BorderBottom(true).
+		BorderRight(false).
+		BorderLeft(false).
 		StyleFunc(func(r, c int) lipgloss.Style {
 			if r == table.HeaderRow {
 				return headerStyle
@@ -102,8 +106,7 @@ func NewModel(client Client, config config.Config) *Model {
 			}
 
 			return s
-		}).
-		Border(lipgloss.HiddenBorder())
+		})
 
 	m.config = config
 	m.table = t
