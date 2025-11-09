@@ -17,25 +17,28 @@ import (
 )
 
 type Model struct {
+	client Client
+	config config.Config
+
+	table    *table.Table
+	viewport viewport.Model
+	help     help.Model
+	spinner  spinner.Model
+
 	width, height int
-	config        config.Config
-	table         *table.Table
-	loaded        bool
-	rows          [][]string
-	rowStatus     *sync.Map
-	updating      bool
 	cursor        int
-	err           error
-	client        Client
-	viewport      viewport.Model
+
 	viewportReady bool
 	showViewport  bool
+	loaded        bool
+	updating      bool
+
+	rows      [][]string
+	rowStatus *sync.Map
+
+	err error
 
 	debugWriter io.Writer
-
-	help help.Model
-
-	spinner spinner.Model
 }
 
 type row struct {
