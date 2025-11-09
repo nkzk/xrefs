@@ -16,8 +16,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// maps a resourceref.Name to a status
-
 type Model struct {
 	width, height int
 	config        config.Config
