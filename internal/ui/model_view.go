@@ -69,7 +69,7 @@ func (m *Model) View() string {
 	}
 
 	if m.showViewport {
-		hh := lipgloss.Height(m.viewportHeaderView())
+		hh := lipgloss.Height(m.viewportHeaderView()) + 5
 		fh := lipgloss.Height(m.viewportFooterView())
 		vh := hh + fh
 
@@ -78,7 +78,7 @@ func (m *Model) View() string {
 		m.viewport.YPosition = hh
 		m.viewportReady = true
 
-		return m.viewportView()
+		return lipgloss.JoinVertical(lipgloss.Top, m.viewportView(), footer)
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Top, header, content, footer)

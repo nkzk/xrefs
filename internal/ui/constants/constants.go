@@ -36,52 +36,55 @@ type keymap struct {
 var Keymap = keymap{
 	Enter: key.NewBinding(
 		key.WithKeys("enter", "y"),
-		key.WithHelp("enter/y", "yaml"),
+		key.WithHelp("y", "yaml "),
 	),
 	Describe: key.NewBinding(
 		key.WithKeys("d"),
-		key.WithHelp("d", "describe"),
+		key.WithHelp("d", "describe "),
 	),
 	Back: key.NewBinding(
 		key.WithKeys("esc"),
-		key.WithHelp("esc", "back"),
+		key.WithHelp("esc", "back "),
 	),
 	Quit: key.NewBinding(
 		key.WithKeys("ctrl+c", "q"),
-		key.WithHelp("ctrl+c/q", "quit"),
+		key.WithHelp("q", "quit "),
 	),
 
 	Up: key.NewBinding(
 		key.WithKeys("up", "k"),
-		key.WithHelp("arrow-up/k", "up"),
+		key.WithHelp("↑/k", "up "),
 	),
 	Down: key.NewBinding(
 		key.WithKeys("down", "j"),
-		key.WithHelp("down/j", "down"),
+		key.WithHelp("↓/j", "down "),
 	),
 	Top: key.NewBinding(
 		key.WithKeys("g"),
-		key.WithHelp("g", "top"),
+		key.WithHelp("g", "top "),
 	),
 	Bottom: key.NewBinding(
 		key.WithKeys("G"),
-		key.WithHelp("G", "top"),
+		key.WithHelp("G", "top "),
 	),
 
 	Help: key.NewBinding(
 		key.WithKeys("h"),
-		key.WithHelp("h", "help"),
+		key.WithHelp("h", "help "),
 	),
 }
 
 func (k keymap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.Enter, k.Describe},
 		{k.Up, k.Down, k.Top, k.Bottom},
-		{k.Back, k.Quit},
+		{k.Enter, k.Describe, k.Back, k.Quit},
 	}
 }
 
 func (k keymap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Help, k.Back, k.Quit}
+	return []key.Binding{
+		k.Help,
+		k.Back,
+		k.Quit,
+	}
 }
