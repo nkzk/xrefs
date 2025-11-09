@@ -6,6 +6,8 @@ import (
 	"os"
 	"sync"
 
+	"github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/spinner"
 	viewport "github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -17,6 +19,7 @@ import (
 // maps a resourceref.Name to a status
 
 type Model struct {
+	width, height int
 	config        config.Config
 	table         *table.Table
 	loaded        bool
@@ -31,6 +34,10 @@ type Model struct {
 	showViewport  bool
 
 	debugWriter io.Writer
+
+	help help.Model
+
+	spinner spinner.Model
 }
 
 type row struct {
@@ -102,6 +109,12 @@ func NewModel(client Client, config config.Config) *Model {
 	m.rowStatus = &sync.Map{}
 	m.debugWriter = config.DebugWriter
 
+	s := spinner.New()
+	s.Spinner = spinner.Jump
+	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
+
+	m.spinner = s
+
 	return m
 }
 
@@ -154,8 +167,8 @@ func (m *Model) saveRowsToModel(rows []row) tea.Cmd {
 
 	newRows := make([][]string, 0, len(rows))
 	for _, r := range rows {
-		ready, readyReason := "", ""
-		synced, syncedReason := "", ""
+		ready, readyReason := "-", "-"
+		synced, syncedReason := "-", "-"
 
 		if s, ok := m.rowStatus.Load(r.Name); ok {
 			if rs, ok := s.(status); ok {
@@ -226,7 +239,8 @@ func getRows(yamlString string, rs *sync.Map) ([]row, error) {
 }
 
 func (m *Model) updateStatusCmd(rs *sync.Map, rows []row, client Client) tea.Cmd {
-	return func() tea.Msg {
+	m.updating = true
+	return tea.Batch(func() tea.Msg {
 		var wg sync.WaitGroup
 		for _, r := range rows {
 			wg.Add(1)
@@ -237,9 +251,8 @@ func (m *Model) updateStatusCmd(rs *sync.Map, rows []row, client Client) tea.Cmd
 		}
 
 		wg.Wait()
-		m.updating = false
 		return statusMsg(rows)
-	}
+	}, m.spinner.Tick)
 }
 
 func getResourceRefs(yamlString string, rs *sync.Map) tea.Cmd {
