@@ -55,7 +55,7 @@ func main() {
 	if config.Debug {
 		file, err := utils.OpenFile(config.DebugPath)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to open %s: %w", config.DebugPath, err)
+			fmt.Fprintf(os.Stderr, "failed to open %s: %v", config.DebugPath, err)
 		}
 
 		config.DebugWriter = file
