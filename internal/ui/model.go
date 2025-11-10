@@ -6,6 +6,8 @@ import (
 	"os"
 	"sync"
 
+	"github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/spinner"
 	viewport "github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -14,21 +16,27 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// maps a resourceref.Name to a status
-
 type Model struct {
-	config        config.Config
-	table         *table.Table
-	loaded        bool
-	rows          [][]string
-	rowStatus     *sync.Map
-	updating      bool
+	client Client
+	config config.Config
+
+	table    *table.Table
+	viewport viewport.Model
+	help     help.Model
+	spinner  spinner.Model
+
+	width, height int
 	cursor        int
-	err           error
-	client        Client
-	viewport      viewport.Model
+
 	viewportReady bool
 	showViewport  bool
+	loaded        bool
+	updating      bool
+
+	rows      [][]string
+	rowStatus *sync.Map
+
+	err error
 
 	debugWriter io.Writer
 }
@@ -70,10 +78,14 @@ func NewModel(client Client, config config.Config) *Model {
 	t := table.New().
 		Headers(headers...).
 		Rows(rows...).
-		Border(lipgloss.NormalBorder()).
-		BorderStyle(re.NewStyle().Foreground(lipgloss.Color("#2f2f2fff"))).
+		Border(lipgloss.RoundedBorder()).
+		// BorderStyle(re.NewStyle().Foreground(lipgloss.Color("#ffffffff"))).
 		BorderRow(false).
 		BorderColumn(false).
+		BorderTop(true).
+		BorderBottom(true).
+		BorderRight(false).
+		BorderLeft(false).
 		StyleFunc(func(r, c int) lipgloss.Style {
 			if r == table.HeaderRow {
 				return headerStyle
@@ -94,13 +106,18 @@ func NewModel(client Client, config config.Config) *Model {
 			}
 
 			return s
-		}).
-		Border(lipgloss.HiddenBorder())
+		})
 
 	m.config = config
 	m.table = t
 	m.rowStatus = &sync.Map{}
 	m.debugWriter = config.DebugWriter
+
+	s := spinner.New()
+	s.Spinner = spinner.Jump
+	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
+
+	m.spinner = s
 
 	return m
 }
@@ -154,8 +171,8 @@ func (m *Model) saveRowsToModel(rows []row) tea.Cmd {
 
 	newRows := make([][]string, 0, len(rows))
 	for _, r := range rows {
-		ready, readyReason := "", ""
-		synced, syncedReason := "", ""
+		ready, readyReason := "-", "-"
+		synced, syncedReason := "-", "-"
 
 		if s, ok := m.rowStatus.Load(r.Name); ok {
 			if rs, ok := s.(status); ok {
@@ -226,7 +243,8 @@ func getRows(yamlString string, rs *sync.Map) ([]row, error) {
 }
 
 func (m *Model) updateStatusCmd(rs *sync.Map, rows []row, client Client) tea.Cmd {
-	return func() tea.Msg {
+	m.updating = true
+	return tea.Batch(func() tea.Msg {
 		var wg sync.WaitGroup
 		for _, r := range rows {
 			wg.Add(1)
@@ -237,9 +255,8 @@ func (m *Model) updateStatusCmd(rs *sync.Map, rows []row, client Client) tea.Cmd
 		}
 
 		wg.Wait()
-		m.updating = false
 		return statusMsg(rows)
-	}
+	}, m.spinner.Tick)
 }
 
 func getResourceRefs(yamlString string, rs *sync.Map) tea.Cmd {

@@ -9,6 +9,7 @@ import (
 
 	"github.com/alecthomas/chroma/v2/quick"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/nkzk/xrefs/internal/ui/constants"
 )
 
 var (
@@ -25,16 +26,32 @@ var (
 	}()
 )
 
-func topText(m *Model) string {
-	return fmt.Sprintf("%s\n", m.config.ColCompositionRevision)
-}
-
 func (m *Model) View() string {
-	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFFFF")).Faint(true).PaddingLeft(2)
-	tableHelp := helpStyle.Render("\nd: describe\ny/enter: yaml\narrow-up/k: up\narrow-down/j: down\nG: bottom\ng: top")
+	var headerStyle = lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("#A1D6FE")).
+		Faint(true).
+		Align(lipgloss.Center).
+		Width(m.width).Render
 
-	topTextStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#A1D6FE")).Faint(true).PaddingLeft(2)
-	s := "\n" + topTextStyle.Render(topText(m))
+	// HEADER
+	header := headerStyle(fmt.Sprintf("%s\n", m.config.ColCompositionRevision))
+	if m.updating {
+		header = headerStyle(fmt.Sprintf("%s %s\n", m.config.ColCompositionRevision, m.spinner.View()))
+	}
+
+	var footerStyle = lipgloss.NewStyle().
+		Foreground(lipgloss.Color("241")).
+		Faint(true).PaddingLeft(2).
+		Width(m.width).
+		Render
+	footer := footerStyle(m.help.View(constants.Keymap))
+
+	var contentStyle = lipgloss.NewStyle().
+		Width(m.width).
+		Align(lipgloss.Center, lipgloss.Center).
+		Render
+	content := contentStyle(m.table.String())
 
 	if m.err != nil {
 		return "could not render view cause of error:\n" + m.err.Error()
@@ -45,16 +62,26 @@ func (m *Model) View() string {
 	}
 
 	if len(m.rows) == 0 {
-	m.loaded = false
-		return "\nThis one doesnt have any resource references ¯\\_(ツ)_/¯\nTry another one\n\n(press q to go back)\n"
+		m.loaded = false
+		return "\nThis one doesnt have any resource references ¯\\_(ツ)_/¯\n" +
+			"Try another one\n\n" +
+			"(press q to go back)\n"
 	}
 
 	if m.showViewport {
-		return m.viewportView()
-	} else {
-		s += m.table.String() + highlightText(tableHelp) + "\n"
+		hh := lipgloss.Height(m.viewportHeaderView()) + 5
+		fh := lipgloss.Height(m.viewportFooterView())
+		vh := hh + fh
+
+		m.viewport.Width = m.width
+		m.viewport.Height = m.height - vh
+		m.viewport.YPosition = hh
+		m.viewportReady = true
+
+		return lipgloss.JoinVertical(lipgloss.Top, m.viewportView(), footer)
 	}
-	return s
+
+	return lipgloss.JoinVertical(lipgloss.Top, header, content, footer)
 }
 
 func (m *Model) viewportView() string {

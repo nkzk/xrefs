@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"time"
 
-	viewport "github.com/charmbracelet/bubbles/viewport"
+	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/davecgh/go-spew/spew"
+	"github.com/nkzk/xrefs/internal/ui/constants"
 )
 
 const refreshInterval = 7 * time.Second
@@ -30,12 +31,16 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tickMsg:
 		var xr string
-		var cmds []tea.Cmd
-		cmds = append(cmds, tick())
+		cmds := []tea.Cmd{tick()}
 
 		if !m.updating {
 			m.updating = true
-			command, err := createGetYamlCommand(m.config.ResourceName, m.config.ResourceGroup, m.config.ResourceVersion, m.config.Name, m.config.Namespace)
+			command, err := createGetYamlCommand(
+				m.config.ResourceName,
+				m.config.ResourceGroup,
+				m.config.ResourceVersion,
+				m.config.Name,
+				m.config.Namespace)
 			if err != nil {
 				return m, func() tea.Msg {
 					return errMsg{err: fmt.Errorf("failed to create kubectl command, %w", err)}
@@ -56,42 +61,36 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case resourceRefMsg:
 		m.loaded = true
-		var cmds []tea.Cmd
 		_ = m.saveRowsToModel([]row(msg))
 
-		if !m.updating {
-			m.updating = true
-			cmds = append(cmds, m.updateStatusCmd(m.rowStatus, []row(msg), m.client))
-		}
-		return m, tea.Batch(cmds...)
+		return m, m.updateStatusCmd(m.rowStatus, []row(msg), m.client)
 
 	case statusMsg:
-		return m, m.saveRowsToModel([]row(msg))
+		m.updating = false
+		_ = m.saveRowsToModel([]row(msg))
+		return m, nil
+	case spinner.TickMsg:
+		var cmd tea.Cmd
+		m.spinner, cmd = m.spinner.Update(msg)
+		return m, cmd
 	case tea.WindowSizeMsg:
+		m.help.Width = msg.Width
+		m.width = msg.Width
+		m.height = msg.Height
+
 		if m.table != nil {
-			m.table = m.table.Width(msg.Width).Height(msg.Height)
+			m.table.Width(msg.Width - 5)
+			m.table.Height(msg.Height - 5)
 		}
-
-		headerHeight := lipgloss.Height(m.viewportHeaderView())
-		footerHeight := lipgloss.Height(m.viewportFooterView())
-		verticalMarginHeight := headerHeight + footerHeight
-
-		if !m.viewportReady {
-			m.viewport = viewport.New(msg.Width, msg.Height-verticalMarginHeight)
-			m.viewport.YPosition = headerHeight
-			m.viewportReady = true
-		} else {
-			m.viewport.Width = msg.Width
-			m.viewport.Height = msg.Height - verticalMarginHeight
-		}
-
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "esc", "backspace":
-			m.showViewport = false
-		case "q", "ctrl+c":
+		switch {
+		case key.Matches(msg, constants.Keymap.Quit):
+			if m.showViewport {
+				m.showViewport = false
+				return m, nil
+			}
 			return m, tea.Quit
-		case "d":
+		case key.Matches(msg, constants.Keymap.Describe):
 			if !m.showViewport {
 				row, err := m.getSelectedRow()
 				if err != nil {
@@ -112,7 +111,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.viewport.GotoTop()
 				m.showViewport = true
 			}
-		case "enter", "y":
+		case key.Matches(msg, constants.Keymap.Enter):
 			if !m.showViewport {
 
 				row, err := m.getSelectedRow()
@@ -136,26 +135,28 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.viewport.GotoTop()
 				m.showViewport = true
 			}
-		case "up", "k":
+		case key.Matches(msg, constants.Keymap.Up):
 			if m.cursor > 0 {
 				m.cursor--
 			}
-		case "down", "j":
+		case key.Matches(msg, constants.Keymap.Down):
 			if m.cursor < len(m.rows)-1 {
 				m.cursor++
 			}
-		case "g":
+		case key.Matches(msg, constants.Keymap.Top):
 			if m.showViewport {
 				m.viewport.GotoTop()
 			} else {
 				m.cursor = 0
 			}
-		case "G":
+		case key.Matches(msg, constants.Keymap.Bottom):
 			if m.showViewport {
 				m.viewport.GotoBottom()
 			} else {
 				m.cursor = len(m.rows) - 1
 			}
+		case key.Matches(msg, constants.Keymap.Help):
+			m.help.ShowAll = !m.help.ShowAll
 		}
 
 		var cmd tea.Cmd

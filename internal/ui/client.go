@@ -119,6 +119,66 @@ spec:
     - apiVersion: v1
       kind: Secret
       name: example-connection-details
+    - apiVersion: app.azuread.m.upbound.io/v1beta1
+      kind: RoleAssignment
+      name: objectid-app-assignment-0
+    - apiVersion: applications.azuread.m.upbound.io/v1beta1
+      kind: Application
+      name: example-app
+    - apiVersion: applications.azuread.m.upbound.io/v1beta1
+      kind: Password
+      name: example-password
+    - apiVersion: policies.azuread.m.upbound.io/v1beta1
+      kind: ClaimsMappingPolicy
+      name: samaccountname-policy
+    - apiVersion: protection.crossplane.io/v1beta1
+      kind: Usage
+      name: example-password-usage
+    - apiVersion: serviceprincipaldelegated.azuread.m.upbound.io/v1beta1
+      kind: PermissionGrant
+      name: grant
+    - apiVersion: serviceprincipals.azuread.m.upbound.io/v1beta1
+      kind: ClaimsMappingPolicyAssignment
+      name: samaccountname-policy-assignment
+    - apiVersion: serviceprincipals.azuread.m.upbound.io/v1beta1
+      kind: Principal
+      name: example-sp
+    - apiVersion: serviceprincipals.azuread.m.upbound.io/v1beta1
+      kind: Principal
+      name: graph-principal
+    - apiVersion: v1
+      kind: Secret
+      name: example-connection-details
+    - apiVersion: app.azuread.m.upbound.io/v1beta1
+      kind: RoleAssignment
+      name: objectid-app-assignment-0
+    - apiVersion: applications.azuread.m.upbound.io/v1beta1
+      kind: Application
+      name: example-app
+    - apiVersion: applications.azuread.m.upbound.io/v1beta1
+      kind: Password
+      name: example-password
+    - apiVersion: policies.azuread.m.upbound.io/v1beta1
+      kind: ClaimsMappingPolicy
+      name: samaccountname-policy
+    - apiVersion: protection.crossplane.io/v1beta1
+      kind: Usage
+      name: example-password-usage
+    - apiVersion: serviceprincipaldelegated.azuread.m.upbound.io/v1beta1
+      kind: PermissionGrant
+      name: grant
+    - apiVersion: serviceprincipals.azuread.m.upbound.io/v1beta1
+      kind: ClaimsMappingPolicyAssignment
+      name: samaccountname-policy-assignment
+    - apiVersion: serviceprincipals.azuread.m.upbound.io/v1beta1
+      kind: Principal
+      name: example-sp
+    - apiVersion: serviceprincipals.azuread.m.upbound.io/v1beta1
+      kind: Principal
+      name: graph-principal
+    - apiVersion: v1
+      kind: Secret
+      name: example-connection-details
   enableSamAccountNameMapping: true
   groupMembershipClaims:
   - SecurityGroup
