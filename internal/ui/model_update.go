@@ -84,9 +84,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.KeyMsg:
 		switch {
-		case key.Matches(msg, constants.Keymap.Back):
-			m.showViewport = false
 		case key.Matches(msg, constants.Keymap.Quit):
+			if m.showViewport {
+				m.showViewport = false
+				return m, nil
+			}
 			return m, tea.Quit
 		case key.Matches(msg, constants.Keymap.Describe):
 			if !m.showViewport {
