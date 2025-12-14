@@ -70,7 +70,7 @@ func (m *Model) View() string {
 
 	if m.showViewport {
 		hh := lipgloss.Height(m.viewportHeaderView()) + 5
-		fh := lipgloss.Height(m.viewportFooterView())
+		fh := lipgloss.Height(m.viewportFooterView()) - 3
 		vh := hh + fh
 
 		m.viewport.Width = m.width

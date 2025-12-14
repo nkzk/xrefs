@@ -69,7 +69,8 @@ func main() {
 		)
 	}
 
-	if _, err := tea.NewProgram(ui.NewModel(client, *config), tea.WithAltScreen()).Run(); err != nil {
+	if _, err := tea.NewProgram(
+		ui.NewRootModel(client, *config), tea.WithAltScreen()).Run(); err != nil {
 		fmt.Printf("failed to start: %v", err)
 		os.Exit(1)
 	}
