@@ -34,7 +34,7 @@ type Root struct {
 }
 
 func NewRootModel(client Client, cfg config.Config) *Root {
-	table := NewTableModel()
+	table := NewResourcesTableModel()
 
 	children := map[string]Child{
 		"table": table,
