@@ -31,11 +31,11 @@ type ResourcesTable struct {
 	loaded, updating bool
 }
 
-func NewResourcesTableModel(client Client, cfg config.Config, debug io.Writer) *ResourcesTable {
+func NewResourcesTableModel(client Client, cfg config.Config) *ResourcesTable {
 	m := &ResourcesTable{
 		cfg:       cfg,
 		client:    client,
-		debug:     debug,
+		debug:     cfg.DebugWriter,
 		rowStatus: &sync.Map{},
 		table:     table.New(),
 	}
@@ -88,7 +88,7 @@ func (m *ResourcesTable) tick() tea.Cmd {
 	return tea.Tick(refreshInterval, func(t time.Time) tea.Msg { return tickMsg(t) })
 }
 
-func (m *ResourcesTable) Update(msg tea.Msg) (Child, tea.Cmd) {
+func (m *ResourcesTable) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tickMsg:
 		if m.updating {
@@ -123,12 +123,14 @@ func (m *ResourcesTable) Update(msg tea.Msg) (Child, tea.Cmd) {
 				m.cursor = len(m.rows) - 1
 			}
 		case key.Matches(msg, constants.Keymap.Enter):
-			if row, err := m.selectedRow(); err == nil {
-				return m, func() tea.Msg { return openDetailMsg{Row: row, Mode: "yaml"} }
+			// todo
+			if _, err := m.selectedRow(); err == nil {
+				return m, nil
 			}
 		case key.Matches(msg, constants.Keymap.Describe):
-			if row, err := m.selectedRow(); err == nil {
-				return m, func() tea.Msg { return openDetailMsg{Row: row, Mode: "describe"} }
+			// todo
+			if _, err := m.selectedRow(); err == nil {
+				return m, nil
 			}
 		}
 	}

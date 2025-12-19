@@ -14,10 +14,8 @@ import (
 )
 
 type Child interface {
+	tea.Model
 	ID() string
-	Init() tea.Cmd
-	Update(tea.Msg) (Child, tea.Cmd)
-	View() string
 	SetSize(width, height int)
 }
 
@@ -34,7 +32,7 @@ type Root struct {
 }
 
 func NewRootModel(client Client, cfg config.Config) *Root {
-	table := NewResourcesTableModel()
+	table := NewResourcesTableModel(client, cfg)
 
 	children := map[string]Child{
 		"table": table,
@@ -104,15 +102,14 @@ func (r *Root) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	}
 
+	// check that current is set
 	cur := r.current()
 	if cur == nil {
 		return r, nil
 	}
 
-	updated, cmd := cur.Update(msg)
-	if updated != cur {
-		r.children[updated.ID()] = updated
-	}
+	// send keys to current
+	_, cmd := cur.Update(msg)
 
 	return r, cmd
 }

@@ -59,16 +59,16 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, tea.Batch(cmds...)
 
-	case resourceRefMsg:
-		m.loaded = true
-		_ = m.saveRowsToModel([]row(msg))
+	// case resourceRefMsg:
+	// 	m.loaded = true
+	// 	_ = m.saveRowsToModel([]row(msg))
 
-		return m, m.updateStatusCmd(m.rowStatus, []row(msg), m.client)
+	// 	return m, m.updateStatusCmd(m.rowStatus, []row(msg), m.client)
 
-	case statusMsg:
-		m.updating = false
-		_ = m.saveRowsToModel([]row(msg))
-		return m, nil
+	// case statusMsg:
+	// 	m.updating = false
+	// 	_ = m.saveRowsToModel([]row(msg))
+	// 	return m, nil
 	case spinner.TickMsg:
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
@@ -88,51 +88,51 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.showViewport = false
 		case key.Matches(msg, constants.Keymap.Quit):
 			return m, tea.Quit
-		case key.Matches(msg, constants.Keymap.Describe):
-			if !m.showViewport {
-				row, err := m.getSelectedRow()
-				if err != nil {
-					m.err = fmt.Errorf("failed to get selected row: %w", err)
-				}
+		// case key.Matches(msg, constants.Keymap.Describe):
+		// 	if !m.showViewport {
+		// row, err := m.getSelectedRow()
+		// if err != nil {
+		// 	m.err = fmt.Errorf("failed to get selected row: %w", err)
+		// }
 
-				command, err := createDescribeCommand(row)
-				if err != nil {
-					m.err = fmt.Errorf("failed to create describe command: %w", err)
-				}
+		// 	command, err := createDescribeCommand(row)
+		// 	if err != nil {
+		// 		m.err = fmt.Errorf("failed to create describe command: %w", err)
+		// 	}
 
-				result, err := m.client.Run(command)
-				if err != nil {
-					m.err = fmt.Errorf("failed to get resource with command '%s': %w", command, err)
-				}
+		// 	result, err := m.client.Run(command)
+		// 	if err != nil {
+		// 		m.err = fmt.Errorf("failed to get resource with command '%s': %w", command, err)
+		// 	}
 
-				m.viewport.SetContent(highlightDescribe(result))
-				m.viewport.GotoTop()
-				m.showViewport = true
-			}
+		// 	m.viewport.SetContent(highlightDescribe(result))
+		// 	m.viewport.GotoTop()
+		// 	m.showViewport = true
+		// }
 		case key.Matches(msg, constants.Keymap.Enter):
-			if !m.showViewport {
+			// if !m.showViewport {
 
-				row, err := m.getSelectedRow()
-				if err != nil {
-					m.err = fmt.Errorf("failed to get selected row: %w", err)
-				}
+			// 	row, err := m.getSelectedRow()
+			// 	if err != nil {
+			// 		m.err = fmt.Errorf("failed to get selected row: %w", err)
+			// 	}
 
-				command, err := createGetYamlCommand(row.Kind, "", row.ApiVersion, row.Name, row.Namespace)
-				if err != nil {
-					m.err = fmt.Errorf("failed to create kubectl command: %w", err)
-					return m, nil
-				}
+			// 	command, err := createGetYamlCommand(row.Kind, "", row.ApiVersion, row.Name, row.Namespace)
+			// 	if err != nil {
+			// 		m.err = fmt.Errorf("failed to create kubectl command: %w", err)
+			// 		return m, nil
+			// 	}
 
-				result, err := m.client.Run(command)
-				if err != nil {
-					m.err = fmt.Errorf("failed to get reource with command '%s': %w", command, err)
-					return m, nil
-				}
+			// 	result, err := m.client.Run(command)
+			// 	if err != nil {
+			// 		m.err = fmt.Errorf("failed to get reource with command '%s': %w", command, err)
+			// 		return m, nil
+			// 	}
 
-				m.viewport.SetContent(highlightYAML(result))
-				m.viewport.GotoTop()
-				m.showViewport = true
-			}
+			// 	m.viewport.SetContent(highlightYAML(result))
+			// 	m.viewport.GotoTop()
+			// 	m.showViewport = true
+			// }
 		case key.Matches(msg, constants.Keymap.Up):
 			if m.cursor > 0 {
 				m.cursor--
