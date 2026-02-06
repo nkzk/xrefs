@@ -33,6 +33,12 @@ type status struct {
 
 type conditions []condition
 
+//	Get a condition
+//
+// Example usage:
+//
+//	conditions.Get("Ready").Status
+//	conditions.Get("Synced").Status
 func (c conditions) Get(s string) condition {
 	for _, condition := range c {
 		if condition.ConditionType == s {
