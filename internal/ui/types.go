@@ -3,11 +3,26 @@ package ui
 import (
 	"fmt"
 	"reflect"
+	"time"
 )
 
+type tickMsg time.Time
 type errMsg struct{ err error }
+type resourceRefMsg []row
+type statusMsg []row
 
 func (e errMsg) Error() string { return e.err.Error() }
+
+type row struct {
+	Namespace    string
+	Kind         string
+	ApiVersion   string
+	Name         string
+	Synced       string
+	SyncedReason string
+	Ready        string
+	ReadyReason  string
+}
 
 func headersFromRow(r row) []string {
 	v := reflect.ValueOf(r)

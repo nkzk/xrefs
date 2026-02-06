@@ -2,16 +2,21 @@ package ui
 
 import (
 	"fmt"
+	"io"
+	"time"
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/nkzk/xrefs/internal/config"
 	"github.com/nkzk/xrefs/internal/ui/constants"
 	"github.com/nkzk/xrefs/internal/utils"
 )
+
+const refreshInterval = 7 * time.Second
 
 type Child interface {
 	tea.Model
@@ -20,15 +25,16 @@ type Child interface {
 }
 
 type Root struct {
-	cfg      config.Config
-	client   Client
-	help     help.Model
-	spinner  spinner.Model
-	width    int
-	height   int
-	children map[string]Child
-	stack    utils.Stack[string]
-	err      error
+	cfg         config.Config
+	client      Client
+	help        help.Model
+	spinner     spinner.Model
+	width       int
+	height      int
+	children    map[string]Child
+	stack       utils.Stack[string]
+	err         error
+	debugWriter io.Writer
 }
 
 func NewRootModel(client Client, cfg config.Config) *Root {
@@ -49,17 +55,24 @@ func NewRootModel(client Client, cfg config.Config) *Root {
 	stack.Push("table")
 
 	return &Root{
-		cfg:      cfg,
-		client:   client,
-		help:     h,
-		spinner:  s,
-		children: children,
-		stack:    stack,
+		cfg:         cfg,
+		client:      client,
+		help:        h,
+		spinner:     s,
+		children:    children,
+		stack:       stack,
+		debugWriter: cfg.DebugWriter,
 	}
 }
 
+func tick() tea.Cmd {
+	return tea.Tick(refreshInterval, func(t time.Time) tea.Msg {
+		return tickMsg(t)
+	})
+}
+
 func (r Root) Init() tea.Cmd {
-	cmds := []tea.Cmd{}
+	cmds := []tea.Cmd{r.spinner.Tick}
 	for _, child := range r.children {
 		cmds = append(cmds, child.Init())
 	}
@@ -70,6 +83,9 @@ func (r Root) Init() tea.Cmd {
 }
 
 func (r *Root) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if r.debugWriter != nil {
+		spew.Fdump(r.debugWriter, msg)
+	}
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		r.width = msg.Width
@@ -81,6 +97,11 @@ func (r *Root) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return r, nil
 
+	case tickMsg:
+	case spinner.TickMsg:
+		var cmd tea.Cmd
+		r.spinner, cmd = r.spinner.Update(msg)
+		return r, cmd
 	case errMsg:
 		r.err = msg
 		return r, nil

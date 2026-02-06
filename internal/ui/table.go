@@ -26,7 +26,7 @@ type ResourcesTable struct {
 	rows      [][]string
 	rowStatus *sync.Map
 
-	cursor, width, height int
+	cursor, width, height, offset int
 
 	loaded, updating bool
 }
@@ -52,7 +52,32 @@ func NewResourcesTableModel(client Client, cfg config.Config) *ResourcesTable {
 		BorderRight(false).
 		BorderLeft(false).
 		StyleFunc(func(r, c int) lipgloss.Style {
-			return lipgloss.NewStyle()
+			base := constants.BaseStyle
+
+			if r >= 0 && r < len(m.rows) && c >= 0 && c < len(m.rows[r]) {
+				switch m.rows[r][c] {
+				case "False", "no":
+					if r == m.cursor {
+						return constants.SelectedStyle.Inherit(base).Foreground(lipgloss.Color("#FF5555")).Bold(true)
+					} else {
+						return base.Foreground(lipgloss.Color("#FF5555")).Bold(true)
+					}
+				case "True", "yes":
+					if r == m.cursor {
+						return constants.SelectedStyle.Inherit(base).Foreground(lipgloss.Color("#00FF7F")).Bold(true)
+					} else {
+						return base.Foreground(lipgloss.Color("#00FF7F")).Bold(true)
+					}
+				}
+			}
+			if r == table.HeaderRow {
+				return constants.HeaderStyle.Inherit(base)
+			}
+
+			if r == m.cursor {
+				return constants.SelectedStyle.Inherit(base)
+			}
+			return base
 		})
 
 	return m
@@ -75,24 +100,15 @@ func (m *ResourcesTable) View() string {
 	return m.table.String()
 }
 
-func (m *ResourcesTable) SetSize(w, h int) {
-	m.width, m.height = w, h
-	m.table.Width(max(0, w-2))
-	m.table.Height(max(0, h-2))
-}
-
-func (m *ResourcesTable) ID() string       { return "table" }
-func (m *ResourcesTable) IsUpdating() bool { return m.updating }
-
-func (m *ResourcesTable) tick() tea.Cmd {
-	return tea.Tick(refreshInterval, func(t time.Time) tea.Msg { return tickMsg(t) })
-}
-
 func (m *ResourcesTable) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tickMsg:
 		if m.updating {
 			return m, m.tick() // schedule next tick, skip fetch
+		}
+
+		if !m.updating {
+			m.updating = true
 		}
 		return m, tea.Batch(m.fetchXR(), m.tick())
 
@@ -133,8 +149,58 @@ func (m *ResourcesTable) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 		}
+
 	}
+	m.adjustOffset()
+	m.table.Offset(m.offset)
 	return m, nil
+}
+
+func (m *ResourcesTable) SetSize(w, h int) {
+	m.width, m.height = w, h
+	m.table.Width(max(0, w-2))
+	m.table.Height(max(0, h-2))
+}
+
+func (m *ResourcesTable) ID() string { return "table" }
+
+func (m *ResourcesTable) IsUpdating() bool { return m.updating }
+
+// visibleRows returns the number of data rows that fit in the table viewport.
+// Accounts for borders (2 lines) and header row (1 line).
+func (m *ResourcesTable) visibleRows() int {
+	return max(0, m.height-8)
+}
+
+// adjustOffset ensures the cursor is always visible within the viewport.
+func (m *ResourcesTable) adjustOffset() {
+	visible := m.visibleRows()
+	if visible <= 0 {
+		return
+	}
+
+	if m.cursor >= m.offset+visible {
+		m.offset = m.cursor - visible + 1
+	}
+
+	if m.cursor < m.offset {
+		m.offset = m.cursor
+	}
+
+	maxOffset := len(m.rows) - visible
+	if maxOffset < 0 {
+		maxOffset = 0
+	}
+	if m.offset > maxOffset {
+		m.offset = maxOffset
+	}
+	if m.offset < 0 {
+		m.offset = 0
+	}
+}
+
+func (m *ResourcesTable) tick() tea.Cmd {
+	return tea.Tick(refreshInterval, func(t time.Time) tea.Msg { return tickMsg(t) })
 }
 
 func (m *ResourcesTable) selectedRow() (row, error) {
