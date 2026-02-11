@@ -57,6 +57,7 @@ plugins:
 
 	return strings.TrimPrefix(s, "\n")
 }
+
 func CreatePluginFile(dstPath, pluginKey, shortCut, command string) error {
 	if pluginKey == "" {
 		return errors.New("plugin name cannot be empty")

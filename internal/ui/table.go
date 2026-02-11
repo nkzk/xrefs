@@ -141,6 +141,7 @@ func (m *ResourcesTable) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, constants.Keymap.Enter):
 			// todo
 			if _, err := m.selectedRow(); err == nil {
+				m.
 				return m, nil
 			}
 		case key.Matches(msg, constants.Keymap.Describe):
