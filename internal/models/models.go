@@ -8,9 +8,8 @@ type Resource struct {
 	schema.GroupVersionKind
 	Name      string
 	Namespace *string
-}
 
-type Xrefs struct {
+	ID       string
 	Parent   *Resource
 	Children []Resource
 }
