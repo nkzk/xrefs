@@ -3,31 +3,33 @@ package k8s
 import (
 	"log"
 
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/dynamic"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
+	fakectrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-type Storage interface{}
-
-type ResourceLoader struct {
-	inMemory bool
-
-	client  runtimeclient.Client
-	storage Storage
-}
-
-func New(inMemory bool, storage Storage) *ResourceLoader {
-	client, err := runtimeclient.New(getKubernetesConfig(), runtimeclient.Options{})
-	if err != nil {
-		log.Fatalf("failed to set up new runtime-client: %v", err)
+func newRuntimeClient(inMemory bool) runtimeclient.Client {
+	var client runtimeclient.Client
+	if inMemory {
+		client = fakectrlruntimeclient.NewFakeClient()
+	} else {
+		var err error
+		client, err = runtimeclient.New(
+			getKubernetesConfig(),
+			runtimeclient.Options{})
+		if err != nil {
+			log.Fatalf("failed to set up new runtime-client: %v", err)
+		}
 	}
 
-	return &ResourceLoader{
-		client:  client,
-		storage: storage,
-	}
+	return client
 }
 
-func (d *ResourceLoader) isObjectNamespaced(obj runtime.Object) (bool, error) {
-	return d.client.IsObjectNamespaced(obj)
+func newDynamicClient() *dynamic.DynamicClient {
+	config := getKubernetesConfig()
+	return dynamic.NewForConfigOrDie(config)
 }
+
+// func (d *ResourceLoader) isObjectNamespaced(obj runtime.Object) (bool, error) {
+// 	return d.client.IsObjectNamespaced(obj)
+// }
