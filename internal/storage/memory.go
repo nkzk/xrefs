@@ -3,7 +3,7 @@ package storage
 import "github.com/nkzk/xrefs/internal/models"
 
 type Memory struct {
-	resources []models.Xrefs
+	resources []models.Resource
 }
 
 func NewMemory() *Memory {
