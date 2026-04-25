@@ -24,7 +24,7 @@ type cli struct {
 	K9sCmd  k9s.Cmd `cmd:"" name:"k9s" help:""`
 
 	// flags
-	Debug debugFlag `help:"Enable debug logging ."`
+	Debug debugFlag `help:"Enable debug logging"`
 }
 
 func main() {

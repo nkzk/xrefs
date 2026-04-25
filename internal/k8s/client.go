@@ -20,7 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func setupclient(context string, diskCache bool) (clientcmd.ClientConfig, client.WithWatch, meta.RESTMapper, error) {
+func SetupKubeClient(context string, diskCache bool) (clientcmd.ClientConfig, client.WithWatch, meta.RESTMapper, error) {
 	cf := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		clientcmd.NewDefaultClientConfigLoadingRules(),
 		&clientcmd.ConfigOverrides{CurrentContext: context},
@@ -127,7 +127,7 @@ func MappingFor(rmapper meta.RESTMapper, resourceOrKindArg string) (*meta.RESTMa
 	return mapping, nil
 }
 
-func parseResourceName(resource, name string) (string, string, error) {
+func ParseResourceName(resource, name string) (string, string, error) {
 	if resource == "" {
 		return "", "", errors.New("resource cannot be an empty string")
 	}
@@ -155,7 +155,7 @@ func parseResourceName(resource, name string) (string, string, error) {
 	return "", "", errors.New("invalid resource format, use TYPE[.VERSION][.GROUP][/NAME]")
 }
 
-func resourceObjectFromMapping(mapping *meta.RESTMapping, clientconfig clientcmd.ClientConfig, name, namespace string) (*v1.ObjectReference, error) {
+func ResourceObjectFromMapping(mapping *meta.RESTMapping, clientconfig clientcmd.ClientConfig, name, namespace string) (*v1.ObjectReference, error) {
 	if mapping.Scope.Name() == meta.RESTScopeNameNamespace {
 		if namespace == "" {
 			var err error

@@ -4,6 +4,7 @@ go 1.25.0
 
 require (
 	charm.land/lipgloss/v2 v2.0.2
+	github.com/google/uuid v1.6.0
 	k8s.io/api v0.35.4
 	k8s.io/apimachinery v0.35.4
 	k8s.io/client-go v0.35.4
@@ -28,7 +29,6 @@ require (
 	github.com/go-openapi/swag v0.23.0 // indirect
 	github.com/google/btree v1.1.3 // indirect
 	github.com/google/gnostic-models v0.7.0 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect

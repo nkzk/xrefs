@@ -13,13 +13,32 @@ import (
 
 var docStyle = lipgloss.NewStyle().Margin(1, 2)
 
+type RootDeletedMsg struct{}
+type RootNotFoundMsg struct{}
+type RootErrMsg struct {
+	Err error
+}
+
+type UpdateResourceMsg struct {
+	Resource *Resource
+}
+
+type QuitMsg struct{}
+
+type ResourceList struct {
+	Items []*Resource
+	Error error
+}
+
 type Resource struct {
-	unstructured unstructured.Unstructured
+	Unstructured unstructured.Unstructured
 
 	ID       string
 	Parent   *Resource
 	Children []Resource
 	Depth    int
+
+	Error error
 }
 
 func flatten(r Resource, depth int) []list.Item {
@@ -35,9 +54,9 @@ func flatten(r Resource, depth int) []list.Item {
 }
 
 // implement item interface
-func (r Resource) Title() string       { return r.unstructured.GetName() }
-func (r Resource) Description() string { return r.unstructured.GetNamespace() }
-func (r Resource) FilterValue() string { return r.unstructured.GetName() }
+func (r Resource) Title() string       { return r.Unstructured.GetName() }
+func (r Resource) Description() string { return r.Unstructured.GetNamespace() }
+func (r Resource) FilterValue() string { return r.Unstructured.GetName() }
 
 func NewResource(name, namespace string) *Resource {
 	return &Resource{}
@@ -46,7 +65,7 @@ func NewResource(name, namespace string) *Resource {
 type Model struct {
 	list list.Model
 
-	rootResource Resource
+	root *Resource
 }
 
 type resourceDelegate struct {
@@ -74,8 +93,8 @@ func (d resourceDelegate) Render(w io.Writer, m list.Model, index int, item list
 		"%s%s%s (%s)\n%s  %s | %s",
 		indent,
 		prefix,
-		r.unstructured.GetName(),
-		r.unstructured.GetNamespace(),
+		r.Unstructured.GetName(),
+		r.Unstructured.GetNamespace(),
 		indent, "status", "r")
 	if index == m.Index() {
 		fmt.Fprint(w, d.selected.Render(line))
@@ -85,7 +104,7 @@ func (d resourceDelegate) Render(w io.Writer, m list.Model, index int, item list
 	fmt.Fprint(w, d.normal.Render(line))
 }
 
-func NewModel() *Model {
+func NewModel(root *Resource) *Model {
 	white := lipgloss.Color("#ffffff")
 	grey := lipgloss.Color("#9b9b9b")
 
@@ -100,8 +119,8 @@ func NewModel() *Model {
 	l.SetShowHelp(false)
 
 	return &Model{
-		list:         l,
-		rootResource: Resource{},
+		list: l,
+		root: root,
 	}
 }
 
@@ -129,45 +148,45 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c":
 			return m, tea.Quit
-		case "a":
-			return m, updateresourcesCmd(Resource{
-				unstructured: unstructured.Unstructured{
-					Object: map[string]any{
-						"apiVersion": "v1",
-						"kind":       "Deployment",
-						"metadata": map[string]any{
-							"name":      "parent-resource",
-							"namespace": "default",
-						},
-					},
-				},
-				Children: []Resource{
-					{
-						unstructured: unstructured.Unstructured{
-							Object: map[string]any{
-								"apiVersion": "v1",
-								"kind":       "ConfigMap",
-								"metadata": map[string]any{
-									"name":      "child-1",
-									"namespace": "default",
-								},
-							},
-						},
-					},
-					{
-						unstructured: unstructured.Unstructured{
-							Object: map[string]any{
-								"apiVersion": "v1",
-								"kind":       "ConfigMap",
-								"metadata": map[string]any{
-									"name":      "child-2",
-									"namespace": "default",
-								},
-							},
-						},
-					},
-				},
-			})
+			// case "a":
+			// 	return m, updateresourcesCmd(Resource{
+			// 		Unstructured: unstructured.Unstructured{
+			// 			Object: map[string]any{
+			// 				"apiVersion": "v1",
+			// 				"kind":       "Deployment",
+			// 				"metadata": map[string]any{
+			// 					"name":      "parent-resource",
+			// 					"namespace": "default",
+			// 				},
+			// 			},
+			// 		},
+			// 		Children: []Resource{
+			// 			{
+			// 				Unstructured: unstructured.Unstructured{
+			// 					Object: map[string]any{
+			// 						"apiVersion": "v1",
+			// 						"kind":       "ConfigMap",
+			// 						"metadata": map[string]any{
+			// 							"name":      "child-1",
+			// 							"namespace": "default",
+			// 						},
+			// 					},
+			// 				},
+			// 			},
+			// 			{
+			// 				Unstructured: unstructured.Unstructured{
+			// 					Object: map[string]any{
+			// 						"apiVersion": "v1",
+			// 						"kind":       "ConfigMap",
+			// 						"metadata": map[string]any{
+			// 							"name":      "child-2",
+			// 							"namespace": "default",
+			// 						},
+			// 					},
+			// 				},
+			// 			},
+			// 		},
+			// 	})
 		}
 	case tea.WindowSizeMsg:
 		h, v := docStyle.GetFrameSize()
