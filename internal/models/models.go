@@ -8,15 +8,13 @@ import (
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 var docStyle = lipgloss.NewStyle().Margin(1, 2)
 
 type Resource struct {
-	schema.GroupVersionKind
-	Name      string
-	Namespace string
+	unstructured unstructured.Unstructured
 
 	ID       string
 	Parent   *Resource
@@ -24,20 +22,22 @@ type Resource struct {
 	Depth    int
 }
 
-func flatten(rs []Resource, depth int) []list.Item {
-	var out []list.Item
-	for _, r := range rs {
-		r.Depth = depth
-		out = append(out, r)
-		out = append(out, flatten(r.Children, depth+1)...)
+func flatten(r Resource, depth int) []list.Item {
+	r.Depth = depth
+
+	out := []list.Item{r}
+
+	for _, child := range r.Children {
+		out = append(out, flatten(child, depth+1)...)
 	}
+
 	return out
 }
 
 // implement item interface
-func (r Resource) Title() string       { return r.Name }
-func (r Resource) Description() string { return r.Namespace }
-func (r Resource) FilterValue() string { return r.Name }
+func (r Resource) Title() string       { return r.unstructured.GetName() }
+func (r Resource) Description() string { return r.unstructured.GetNamespace() }
+func (r Resource) FilterValue() string { return r.unstructured.GetName() }
 
 func NewResource(name, namespace string) *Resource {
 	return &Resource{}
@@ -46,7 +46,7 @@ func NewResource(name, namespace string) *Resource {
 type Model struct {
 	list list.Model
 
-	resource Resource
+	rootResource Resource
 }
 
 type resourceDelegate struct {
@@ -70,17 +70,21 @@ func (d resourceDelegate) Render(w io.Writer, m list.Model, index int, item list
 		prefix = "└─ "
 	}
 
-	line := indent + prefix + r.Name
-	if r.Namespace != "" {
-		line += " " + r.Namespace
-	}
-
+	line := fmt.Sprintf(
+		"%s%s%s (%s)\n%s  %s | %s",
+		indent,
+		prefix,
+		r.unstructured.GetName(),
+		r.unstructured.GetNamespace(),
+		indent, "status", "r")
 	if index == m.Index() {
 		fmt.Fprint(w, d.selected.Render(line))
 		return
 	}
+
 	fmt.Fprint(w, d.normal.Render(line))
 }
+
 func NewModel() *Model {
 	white := lipgloss.Color("#ffffff")
 	grey := lipgloss.Color("#9b9b9b")
@@ -96,8 +100,8 @@ func NewModel() *Model {
 	l.SetShowHelp(false)
 
 	return &Model{
-		list:     l,
-		resource: *NewResource("name", "namespace"),
+		list:         l,
+		rootResource: Resource{},
 	}
 }
 
@@ -105,19 +109,19 @@ func (m Model) Init() tea.Cmd {
 	return nil
 }
 
-type addResourcesMsg struct {
-	resources []Resource
+type updateResourceMsg struct {
+	resources Resource
 }
 
-func addResourceCmd(rs []Resource) tea.Cmd {
+func updateresourcesCmd(rs Resource) tea.Cmd {
 	return func() tea.Msg {
-		return addResourcesMsg{resources: rs}
+		return updateResourceMsg{resources: rs}
 	}
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case addResourcesMsg:
+	case updateResourceMsg:
 		items := append([]list.Item{}, m.list.Items()...)
 		items = append(items, flatten(msg.resources, 0)...)
 		return m, m.list.SetItems(items)
@@ -126,20 +130,41 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c":
 			return m, tea.Quit
 		case "a":
-			return m, addResourceCmd([]Resource{
-				{
-					Name: "parent",
-					Children: []Resource{
-						{
-							Name: "child-1",
-							Children: []Resource{
-								{
-									Name:      "child-child",
-									Namespace: "namespace",
+			return m, updateresourcesCmd(Resource{
+				unstructured: unstructured.Unstructured{
+					Object: map[string]any{
+						"apiVersion": "v1",
+						"kind":       "Deployment",
+						"metadata": map[string]any{
+							"name":      "parent-resource",
+							"namespace": "default",
+						},
+					},
+				},
+				Children: []Resource{
+					{
+						unstructured: unstructured.Unstructured{
+							Object: map[string]any{
+								"apiVersion": "v1",
+								"kind":       "ConfigMap",
+								"metadata": map[string]any{
+									"name":      "child-1",
+									"namespace": "default",
 								},
 							},
 						},
-						{Name: "child-2"},
+					},
+					{
+						unstructured: unstructured.Unstructured{
+							Object: map[string]any{
+								"apiVersion": "v1",
+								"kind":       "ConfigMap",
+								"metadata": map[string]any{
+									"name":      "child-2",
+									"namespace": "default",
+								},
+							},
+						},
 					},
 				},
 			})
