@@ -3,18 +3,14 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/alecthomas/kong"
-	"github.com/google/uuid"
 	"github.com/nkzk/xrefs/internal/k8s"
 	"github.com/nkzk/xrefs/internal/models"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
@@ -43,12 +39,46 @@ func (c *Cmd) Help() string {
 }
 
 func (c *Cmd) Run(k *kong.Context) error {
+	ctx := context.Background()
+
+	if c.Mock {
+		return c.runMock(ctx, k)
+	}
+
+	return c.runKubernetes(ctx, k)
+}
+
+func (c *Cmd) runMock(ctx context.Context, k *kong.Context) error {
+	kClient := k8s.NewMockClient()
+	watcher := k8s.NewMockResourceWatcher()
+
+	rootRef := &corev1.ObjectReference{
+		APIVersion: "example.io/v1alpha1",
+		Kind:       "MyXR",
+		Name:       "example",
+		Namespace:  "default",
+	}
+
+	root, err := kClient.GetUnstructured(ctx, rootRef)
+	if err != nil {
+		return err
+	}
+
+	rootResource := models.NewResource(
+		nil,
+		root,
+		rootRef,
+	)
+
+	return c.watchResourceTree(ctx, k, kClient, watcher, rootResource)
+}
+
+func (c *Cmd) runKubernetes(ctx context.Context, k *kong.Context) error {
 	clientconfig, client, rmapper, err := k8s.SetupKubeClient(c.Context, c.CacheOnDisk)
 	if err != nil {
 		return err
 	}
 
-	// since resource name can come as its own arg or part of resource-arg, parse it
 	resource, name, err := k8s.ParseResourceName(c.Resource, c.Name)
 	if err != nil {
 		return err
@@ -59,59 +89,59 @@ func (c *Cmd) Run(k *kong.Context) error {
 		return err
 	}
 
-	resourceoObjectRef, err := k8s.ResourceObjectRefFromMapping(resourceMapping, clientconfig, name, c.Namespace)
+	resourceObjectRef, err := k8s.ResourceObjectRefFromMapping(
+		resourceMapping,
+		clientconfig,
+		name,
+		c.Namespace,
+	)
 	if err != nil {
 		return err
 	}
 
 	kClient := k8s.NewK8sClient(client)
+	watcher := k8s.NewKubernetesResourceWatcher(client)
 
-	root := kClient.GetResource(context.TODO(), resourceoObjectRef)
-
-	loadResourceChildren(root)
-
-	m := models.NewModel(root)
-
-	_, err = tea.NewProgram(m).Run()
+	root, err := kClient.GetUnstructured(ctx, resourceObjectRef)
 	if err != nil {
-		fmt.Fprintf(k.Stdout, "failed to start: %v\n", err)
-		os.Exit(1)
+		return err
 	}
 
-	return nil
+	rootResource := models.NewResource(
+		nil,
+		root,
+		resourceObjectRef,
+	)
+
+	return c.watchResourceTree(ctx, k, kClient, watcher, rootResource)
 }
 
-// runs the watch loop and sends updates to bubbletea tui
-func (c *Cmd) watch(ctx context.Context, kClient k8s.Client, root *v1.ObjectReference, mapping *meta.RESTMapping, prog *tea.Program, w watch.Interface) {
+func (c *Cmd) watchResourceTree(
+	ctx context.Context,
+	k *kong.Context,
+	kClient k8s.Client,
+	watcher k8s.ResourceWatcher,
+	root *models.Resource,
+) error {
+	w, err := watcher.WatchResource(ctx, root)
+	if err != nil {
+		return fmt.Errorf("cannot start watch: %v", err)
+	}
+	defer w.Stop()
+
+	prog := tea.NewProgram(models.NewModel(root), tea.WithOutput(k.Stdout))
+
+	go c.watchProducer(ctx, kClient, root, prog, w)
+
+	_, err = prog.Run()
+	return err
+}
+
+// runs the watchProducer loop for a resource and sends updates to bubbletea tui
+func (c *Cmd) watchProducer(ctx context.Context, kClient k8s.Client, root *models.Resource, prog *tea.Program, w watch.Interface) {
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 
-	last := &models.Resource{}
-
-	renderAndSend := func() error {
-		current := kClient.GetResource(ctx, root)
-		if current.Error != nil {
-			if apierrors.IsNotFound(current.Error) {
-				prog.Send(models.RootNotFoundMsg{})
-				return nil
-			}
-
-			return current.Error
-		}
-
-		for _, c := range current.Children {
-			child := kClient.GetResource(ctx, c.Ref)
-			
-
-
-		}
-
-		prog.Send(models.UpdateResourceMsg{
-			Resource: last,
-		})
-
-		return nil
-	}
 	// watch loop
 	for {
 		select {
@@ -124,13 +154,13 @@ func (c *Cmd) watch(ctx context.Context, kClient k8s.Client, root *v1.ObjectRefe
 				prog.Send(models.RootDeletedMsg{})
 				return
 			}
-			if err := renderAndSend(); err != nil {
+			if err := updateAndSend(ctx, root, kClient, prog); err != nil {
 				c.handleProducerError(prog, err)
 				return
 			}
 
 		case <-ticker.C:
-			if err := renderAndSend(); err != nil {
+			if err := updateAndSend(ctx, root, kClient, prog); err != nil {
 				c.handleProducerError(prog, err)
 				return
 			}
@@ -141,7 +171,56 @@ func (c *Cmd) watch(ctx context.Context, kClient k8s.Client, root *v1.ObjectRefe
 	}
 }
 
-// loads subresources of a resource (crossplane XR) to root resource Children array
+// updateAndSend updates a Resource and its children and send an UpdateResourceMsg to tea.Program
+func updateAndSend(ctx context.Context, r *models.Resource, kClient k8s.Client, prog *tea.Program) error {
+	current, err := kClient.GetUnstructured(ctx, r.Ref)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			prog.Send(models.RootNotFoundMsg{Ref: r.Ref})
+			return nil
+		}
+
+		return err
+	}
+
+	// Update unstructured
+	r.Unstructured = current
+
+	// Update Resource conditions
+	freshConditions := []models.Condition{}
+	conditions, ok, err := unstructured.NestedSlice(current.Object, "status", "conditions")
+	if ok && err == nil {
+		for _, c := range conditions {
+			var condition models.Condition
+			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(
+				c.(map[string]any),
+				&condition,
+			); err == nil {
+				freshConditions = append(freshConditions, condition)
+			}
+		}
+	}
+
+	r.Conditions = freshConditions
+
+	// Update children array
+	loadResourceChildren(r)
+
+	// Update children
+	for i := range r.Children {
+		if err := updateAndSend(ctx, &r.Children[i], kClient, prog); err != nil {
+			return err
+		}
+	}
+
+	prog.Send(models.UpdateResourceMsg{
+		Resource: r,
+	})
+
+	return nil
+}
+
+// loads subresource refs of a resource (crossplane XR) to root resource Children array
 func loadResourceChildren(root *models.Resource) {
 	// reset the array to ensure we start fresh
 	root.Children = []models.Resource{}
@@ -155,24 +234,18 @@ func loadResourceChildren(root *models.Resource) {
 		}
 
 		for _, r := range resourceRefs {
-			ref, ok := r.(corev1.ObjectReference)
+			ref := corev1.ObjectReference{}
+
+			m, ok := r.(map[string]any)
 			if !ok {
 				continue
 			}
 
-			u, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&ref)
-			if err != nil {
+			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(m, &ref); err != nil {
 				continue
 			}
 
-			root.Children = append(root.Children, models.Resource{
-				Parent: root,
-				Ref:    &ref,
-				ID:     uuid.New().String(),
-				Unstructured: unstructured.Unstructured{
-					Object: u,
-				},
-			})
+			root.Children = append(root.Children, *models.NewResource(nil, nil, &ref))
 		}
 		// other resources can be represented as a case, for example flux kustomization
 	}
@@ -185,17 +258,4 @@ func (c *Cmd) handleProducerError(prog *tea.Program, err error) {
 		return
 	}
 	prog.Send(models.RootErrMsg{Err: fmt.Errorf("error getting resource: %v", err)})
-}
-
-func objectRefFromUnstructured(v map[string]interface{}) (*corev1.ObjectReference, error) {
-	var ref corev1.ObjectReference
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(v, &ref); err != nil {
-		return nil, err
-	}
-
-	if ref.APIVersion == "" || ref.Kind == "" || ref.Name == "" {
-		return nil, fmt.Errorf("invalid object ref: apiVersion=%q kind=%q name=%q", ref.APIVersion, ref.Kind, ref.Name)
-	}
-
-	return &ref, nil
 }

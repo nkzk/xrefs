@@ -2,16 +2,15 @@ package k8s
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/nkzk/xrefs/internal/models"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Client interface {
-	GetResource(ctx context.Context, ref *v1.ObjectReference) *models.Resource
-	// ListResources(ctx context.Context, ref *v1.ObjectReference) *models.ResourceList
+	GetUnstructured(ctx context.Context, ref *v1.ObjectReference) (*unstructured.Unstructured, error)
 }
 
 type K8sClient struct {
@@ -23,91 +22,41 @@ func NewK8sClient(client client.Client) *K8sClient {
 		Client: client,
 	}
 }
-func (c K8sClient) GetResource(ctx context.Context, root *v1.ObjectReference) *models.Resource {
-	result := &models.Resource{}
 
-	result.Ref = root
-	result.Unstructured.SetGroupVersionKind(root.GroupVersionKind())
+// Gets the unstructured object for an objectreference
+// Even if it fails, the unstructured object is filled with GVK and metadata.name and namespace, and the error is returned
+func (c K8sClient) GetUnstructured(ctx context.Context, root *v1.ObjectReference) (*unstructured.Unstructured, error) {
+	result := &unstructured.Unstructured{}
+	result.SetGroupVersionKind(root.GroupVersionKind())
 
 	err := c.Client.Get(
 		ctx,
 		client.ObjectKey{
 			Name:      root.Name,
 			Namespace: root.Namespace},
-		&result.Unstructured)
-	if err != nil {
-		// set name/namespace anyway
-		result.Unstructured.SetName(root.Name)
-		result.Unstructured.SetNamespace(root.Namespace)
-		result.Error = err
-	}
+		result)
+	// set name/namespace even if err, so the object is usable
+	result.SetName(root.Name)
+	result.SetNamespace(root.Namespace)
 
-	// // update conditions
-	// conditions, ok, err := unstructured.NestedSlice(result.Unstructured.Object, "status", "conditions")
-	// if ok && err == nil {
-	// 	for _, c := range conditions {
-	// 		condition, ok := c.(models.Condition)
-	// 		if ok {
-	// 			result.Conditions = append(result.Conditions, condition)
-	// 		}
-	// 	}
-	// }
-
-	return result
+	return result, err
 }
 
 type MockClient struct{}
 
-func (c MockClient) GetResource(ctx context.Context, root *v1.ObjectReference) *models.Resource {
-	return &models.Resource{
-		Parent: nil,
-		ID:     "123",
-		Unstructured: unstructured.Unstructured{
-			Object: map[string]any{
-				"apiVersion": "alphav1",
-				"kind":       "MyXR",
-				"metadata": map[string]any{
-					"name":      "example",
-					"namespace": "default",
-					"spec": map[string]any{
-						"crossplane": map[string]any{
-							"resourceRefs": []map[string]any{
-								{
-									"kind":       "Application",
-									"apiVersion": "applications.azuread.m.upbound.io/v1beta1",
-									"name":       "example",
-								},
-								{
-									"kind":       "Secret",
-									"apiVersion": "v1",
-								},
-							},
-						},
-					},
-				},
-				"status": map[string]any{
-					"conditions": []map[string]any{
-						{
-							"type":               "Synced",
-							"status":             "True",
-							"reason":             "ReconcileSuccess",
-							"observedGeneration": 7,
-							"lastTransitionTime": "2025-10-10T12:55:42Z",
-						},
-						{
-							"type":               "Ready",
-							"status":             "False",
-							"reason":             "Creating",
-							"observedGeneration": 7,
-							"lastTransitionTime": "2025-10-10T12:55:42Z",
-						},
-					},
-				},
-			},
-		},
-	}
+func NewMockClient() *MockClient {
+	return &MockClient{}
 }
 
-// func (c K8sClient) ListResources(ctx context.Context, ref *v1.ObjectReference) *models.ResourceList {
-
-// }
+func (c MockClient) GetUnstructured(ctx context.Context, r *v1.ObjectReference) (*unstructured.Unstructured, error) {
+	switch r.Kind {
+	case mockXRKind:
+		return mockXR(), nil
+	case mockApplicationKind:
+		return mockApplication(), nil
+	case mockConfigMapKind:
+		return mockConfigMap(), nil
+	default:
+		return nil, fmt.Errorf("kind '%s' is not implemented in mock client", r.Kind)
+	}
+}

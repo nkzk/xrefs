@@ -1,6 +1,7 @@
 package k8s
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -8,9 +9,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nkzk/xrefs/internal/models"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/disk"
 	"k8s.io/client-go/discovery/cached/memory"
@@ -143,7 +146,7 @@ func ParseResourceName(resource, name string) (string, string, error) {
 
 	if length == 2 {
 		// If a name is separately provided, error out
-		if name == "" {
+		if name != "" {
 			return "", "", errors.New("invalid resource format, name cannot be defined twice, use TYPE[.VERSION][.GROUP][/NAME]")
 		}
 
@@ -174,6 +177,7 @@ func ResourceObjectRefFromMapping(mapping *meta.RESTMapping, clientconfig client
 	}, nil
 }
 
-// func (d *ResourceLoader) isObjectNamespaced(obj runtime.Object) (bool, error) {
-// 	return d.client.IsObjectNamespaced(obj)
-// }
+type ResourceWatcher interface {
+	WatchResource(ctx context.Context, root *models.Resource) (watch.Interface, error)
+}
+
