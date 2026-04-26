@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"reflect"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -19,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/tools/reference"
 )
 
 type Cmd struct {
@@ -69,7 +69,7 @@ func (c *Cmd) Run(k *kong.Context) error {
 
 	root := kClient.GetResource(context.TODO(), resourceoObjectRef)
 
-	c.initChildren(context.TODO(), root, resourceMapping, kClient)
+	loadResourceChildren(root)
 
 	m := models.NewModel(root)
 
@@ -100,11 +100,14 @@ func (c *Cmd) watch(ctx context.Context, kClient k8s.Client, root *v1.ObjectRefe
 			return current.Error
 		}
 
-		if !reflect.DeepEqual(current, last) {
-			prog.Send(models.UpdateResourceMsg{
-				Resource: last,
-			})
+		for _, c := range current.Children {
+			child := kClient.GetResource(ctx, toObjectRef(&c.Unstructured))
+
 		}
+
+		prog.Send(models.UpdateResourceMsg{
+			Resource: last,
+		})
 
 		return nil
 	}
@@ -137,7 +140,8 @@ func (c *Cmd) watch(ctx context.Context, kClient k8s.Client, root *v1.ObjectRefe
 	}
 }
 
-func (c *Cmd) initChildren(ctx context.Context, root *models.Resource, mapping *meta.RESTMapping, kClient k8s.Client) {
+// loads subresources of a resource (crossplane XR) to root resource Children array
+func loadResourceChildren(root *models.Resource) {
 	// reset the array to ensure we start fresh
 	root.Children = []models.Resource{}
 
@@ -179,4 +183,8 @@ func (c *Cmd) handleProducerError(prog *tea.Program, err error) {
 		return
 	}
 	prog.Send(models.RootErrMsg{Err: fmt.Errorf("error getting resource: %v", err)})
+}
+
+func toObjectRef(obj runtime.Object, scheme *runtime.Scheme) (*corev1.ObjectReference, error) {
+	return reference.GetReference(scheme, obj)
 }
