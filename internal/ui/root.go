@@ -1,0 +1,285 @@
+package ui
+
+import (
+	"fmt"
+	"io"
+	"strings"
+	"time"
+
+	"charm.land/bubbles/v2/list"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+	"github.com/nkzk/xrefs/internal/models"
+)
+
+type Model struct {
+	list list.Model
+
+	resourceViewModel resourceViewModel
+	showViewport      bool
+
+	root          *models.Resource
+	rootUpdatedAt time.Time
+}
+
+func NewModel(root *models.Resource) *Model {
+	delegate := NewResourceDelegate()
+
+	l := list.New(flatten(*root, 0), delegate, 120, 24)
+	l.SetShowTitle(false)
+	l.SetShowStatusBar(false)
+	l.SetShowHelp(false)
+	l.SetFilteringEnabled(true)
+
+	return &Model{
+		list:              l,
+		root:              root,
+		resourceViewModel: newResourceViewModel(),
+	}
+}
+
+var docStyle = lipgloss.NewStyle().Margin(1, 2)
+
+type (
+	UpdateResourceMsg struct {
+		Resource *models.Resource
+	}
+
+	QuitMsg    struct{}
+	RootErrMsg struct {
+		Err error
+	}
+	RootDeletedMsg struct{}
+)
+
+func (m Model) Init() tea.Cmd { return nil }
+
+func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+
+	switch msg := msg.(type) {
+
+	case UpdateResourceMsg:
+		m.root = msg.Resource
+		m.rootUpdatedAt = time.Now()
+		return m, m.list.SetItems(flatten(*msg.Resource, 0))
+
+	case tea.KeyPressMsg:
+		if m.list.FilterState() == list.Filtering {
+			break // let list handle it
+		}
+
+		switch msg.String() {
+		case "ctrl+c":
+			return m, tea.Quit
+
+		case "q":
+			if m.showViewport {
+				m.showViewport = false
+				return m, nil
+			}
+			return m, nil
+
+		case "y", "enter":
+			if !m.showViewport {
+				selected, ok := m.list.SelectedItem().(models.Resource)
+				if ok {
+					m.resourceViewModel.SetResource(&selected)
+					m.showViewport = true
+					return m, nil
+				}
+			}
+		}
+
+	case tea.WindowSizeMsg:
+		var cmd tea.Cmd
+		h, v := docStyle.GetFrameSize()
+		m.resourceViewModel, cmd = m.resourceViewModel.Update(msg)
+		m.list.SetSize(msg.Width-h, msg.Height-v-1)
+		return m, cmd
+	}
+
+	if m.showViewport {
+		var cmd tea.Cmd
+		m.resourceViewModel, cmd = m.resourceViewModel.Update(msg)
+		return m, cmd
+	}
+
+	var cmd tea.Cmd
+	m.list, cmd = m.list.Update(msg)
+	return m, cmd
+}
+
+func (m Model) View() tea.View {
+	if m.showViewport {
+		return m.resourceViewModel.View()
+	}
+
+	columns := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#6f6f6f")).
+		Render(fmt.Sprintf(
+			"%-48s  %-15s %-13s %-14s %s",
+			"RESOURCE",
+			"NAMESPACE",
+			"READY",
+			"SYNCED",
+			"REASON",
+		))
+
+	status := "not updated yet"
+	if !m.rootUpdatedAt.IsZero() {
+		status = fmt.Sprintf("last update: %s", m.rootUpdatedAt.Format("15:04:05"))
+	}
+
+	footer := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#6f6f6f")).
+		Render("↑/↓ navigate • y inspect • ctrl+c quit • " + status)
+
+	body := strings.Join([]string{
+		columns,
+		m.list.View(),
+		footer,
+	}, "\n")
+
+	v := tea.NewView(docStyle.Render(body))
+	v.AltScreen = true
+	return v
+}
+
+type resourceDelegate struct {
+	selected lipgloss.Style
+	normal   lipgloss.Style
+	notFound lipgloss.Style
+}
+
+func NewResourceDelegate() resourceDelegate {
+	return resourceDelegate{
+		selected: lipgloss.NewStyle().Foreground(lipgloss.Color("#ffffff")).Bold(true),
+		normal:   lipgloss.NewStyle().Foreground(lipgloss.Color("#9b9b9b")),
+		notFound: lipgloss.NewStyle().Foreground(lipgloss.Color("#ff9898")),
+	}
+}
+
+func (d resourceDelegate) Height() int  { return 1 }
+func (d resourceDelegate) Spacing() int { return 0 }
+func (d resourceDelegate) Update(msg tea.Msg, m *list.Model) tea.Cmd {
+	return nil
+}
+
+func (d resourceDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
+	r := item.(models.Resource)
+
+	row := fmt.Sprintf(
+		"%-48s  %-15s %-13s %-14s %s",
+		treeName(r),
+		namespace(r),
+		condStatus(r, "Ready"),
+		condStatus(r, "Synced"),
+		shorten(condReason(r), 40),
+	)
+
+	if r.NotFound {
+		fmt.Fprint(w, d.notFound.Render(row))
+		return
+	}
+
+	if index == m.Index() {
+		fmt.Fprint(w, d.selected.Render(row))
+		return
+	}
+
+	fmt.Fprint(w, d.normal.Render(row))
+}
+
+func flatten(r models.Resource, depth int) []list.Item {
+	return flattenWithPrefix(r, depth, true, "")
+}
+
+func flattenWithPrefix(r models.Resource, depth int, isLast bool, prefix string) []list.Item {
+	r.Depth = depth
+	r.IsLast = isLast
+	r.Prefix = prefix
+
+	out := []list.Item{r}
+
+	childPrefix := prefix
+	if depth > 0 {
+		if isLast {
+			childPrefix += "   "
+		} else {
+			childPrefix += "│  "
+		}
+	}
+
+	for i, child := range r.Children {
+		out = append(out, flattenWithPrefix(
+			child,
+			depth+1,
+			i == len(r.Children)-1,
+			childPrefix,
+		)...)
+	}
+
+	return out
+}
+
+func treeName(r models.Resource) string {
+	prefix := ""
+	if r.Depth > 0 {
+		if r.IsLast {
+			prefix = r.Prefix + "└─ "
+		} else {
+			prefix = r.Prefix + "├─ "
+		}
+	}
+
+	kind := r.Ref.Kind
+	name := r.Ref.Name
+
+	if r.Unstructured != nil {
+		if r.Unstructured.GetKind() != "" {
+			kind = r.Unstructured.GetKind()
+		}
+		if r.Unstructured.GetName() != "" {
+			name = r.Unstructured.GetName()
+		}
+	}
+
+	return fmt.Sprintf("%s%s/%s", prefix, kind, name)
+}
+
+func namespace(r models.Resource) string {
+	if r.Unstructured != nil && r.Unstructured.GetNamespace() != "" {
+		return r.Unstructured.GetNamespace()
+	}
+	if r.Ref != nil {
+		return r.Ref.Namespace
+	}
+	return "-"
+}
+
+func condStatus(r models.Resource, name string) string {
+	c := r.Conditions.Get(name)
+	if c.Status == "" {
+		return "-"
+	}
+	return c.Status
+}
+
+func condReason(r models.Resource) string {
+	if r := r.Conditions.Get("Ready").Reason; r != "" {
+		return r
+	}
+	if r := r.Conditions.Get("Synced").Reason; r != "" {
+		return r
+	}
+	return "-"
+}
+
+func shorten(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	head := max / 2
+	tail := max - head - 1
+	return s[:head] + "(...)" + s[len(s)-tail:]
+}

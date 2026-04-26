@@ -42,7 +42,7 @@ func (w KubernetesResourceWatcher) WatchResource(
 
 type MockResourceWatcher struct{}
 
-func NewMockResourceWatcher() *MockResourceWatcher {
+func NewMockResourceWatcher() *MockResourceWatcher{
 	return &MockResourceWatcher{}
 }
 

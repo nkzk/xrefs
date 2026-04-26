@@ -140,8 +140,16 @@ func (c *Cmd) watchResourceTree(
 
 // runs the watchProducer loop for a resource and sends updates to bubbletea tui
 func (c *Cmd) watchProducer(ctx context.Context, kClient k8s.Client, root *models.Resource, prog *tea.Program, w watch.Interface) {
-	ticker := time.NewTicker(2 * time.Second)
+	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
+
+	if err := update(ctx, root, kClient, prog); err != nil {
+		c.handleProducerError(prog, err)
+		return
+	}
+	prog.Send(ui.UpdateResourceMsg{
+		Resource: root,
+	})
 
 	// watch loop
 	for {
@@ -155,16 +163,23 @@ func (c *Cmd) watchProducer(ctx context.Context, kClient k8s.Client, root *model
 				prog.Send(ui.RootDeletedMsg{})
 				return
 			}
-			if err := updateAndSend(ctx, root, kClient, prog); err != nil {
+			if err := update(ctx, root, kClient, prog); err != nil {
+				c.handleProducerError(prog, err)
+				return
+			}
+			prog.Send(ui.UpdateResourceMsg{
+				Resource: root,
+			})
+
+		case <-ticker.C:
+			if err := update(ctx, root, kClient, prog); err != nil {
 				c.handleProducerError(prog, err)
 				return
 			}
 
-		case <-ticker.C:
-			if err := updateAndSend(ctx, root, kClient, prog); err != nil {
-				c.handleProducerError(prog, err)
-				return
-			}
+			prog.Send(ui.UpdateResourceMsg{
+				Resource: root,
+			})
 		case <-ctx.Done():
 			prog.Send(ui.QuitMsg{})
 			return
@@ -173,16 +188,18 @@ func (c *Cmd) watchProducer(ctx context.Context, kClient k8s.Client, root *model
 }
 
 // updateAndSend updates a Resource and its children and send an UpdateResourceMsg to tea.Program
-func updateAndSend(ctx context.Context, r *models.Resource, kClient k8s.Client, prog *tea.Program) error {
+func update(ctx context.Context, r *models.Resource, kClient k8s.Client, prog *tea.Program) error {
 	current, err := kClient.GetUnstructured(ctx, r.Ref)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			prog.Send(ui.RootNotFoundMsg{Ref: r.Ref})
+			r.NotFound = true
 			return nil
 		}
 
 		return err
 	}
+
+	r.NotFound = false
 
 	// Update unstructured
 	r.Unstructured = current
@@ -209,14 +226,10 @@ func updateAndSend(ctx context.Context, r *models.Resource, kClient k8s.Client, 
 
 	// Update children
 	for i := range r.Children {
-		if err := updateAndSend(ctx, &r.Children[i], kClient, prog); err != nil {
+		if err := update(ctx, &r.Children[i], kClient, prog); err != nil {
 			return err
 		}
 	}
-
-	prog.Send(ui.UpdateResourceMsg{
-		Resource: r,
-	})
 
 	return nil
 }
@@ -255,8 +268,8 @@ func loadResourceChildren(root *models.Resource) {
 // handleProducerError handles errors from the watch producer.
 func (c *Cmd) handleProducerError(prog *tea.Program, err error) {
 	if apierrors.IsNotFound(err) {
-		prog.Send(ui.RootNotFoundMsg{})
 		return
 	}
+
 	prog.Send(ui.RootErrMsg{Err: fmt.Errorf("error getting resource: %v", err)})
 }

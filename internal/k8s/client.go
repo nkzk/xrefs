@@ -5,7 +5,9 @@ import (
 	"fmt"
 
 	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -57,6 +59,12 @@ func (c MockClient) GetUnstructured(ctx context.Context, r *v1.ObjectReference) 
 	case mockConfigMapKind:
 		return mockConfigMap(), nil
 	default:
-		return nil, fmt.Errorf("kind '%s' is not implemented in mock client", r.Kind)
+		return nil, fmt.Errorf("kind '%s' is not implemented in mock client: %w", r.Kind, apierrors.NewNotFound(
+			schema.GroupResource{
+				Group:    "",
+				Resource: r.Kind,
+			},
+			r.Name,
+		))
 	}
 }

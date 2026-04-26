@@ -32,6 +32,12 @@ func mockXR() *unstructured.Unstructured {
 							"name":       "example",
 							"namespace":  "default",
 						},
+						map[string]any{
+							"apiVersion": "ayo",
+							"kind":       "DoesNotExist",
+							"name":       "example",
+							"namespace":  "default",
+						},
 					},
 				},
 			},
@@ -65,9 +71,9 @@ func mockConfigMap() *unstructured.Unstructured {
 			"metadata": map[string]any{
 				"name":      "example-cm",
 				"namespace": "default",
-				"data": map[string]any{
-					"key": "value",
-				},
+			},
+			"data": map[string]any{
+				"key": "value",
 			},
 		},
 	}

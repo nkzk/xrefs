@@ -7,6 +7,8 @@ import (
 )
 
 type Resource struct {
+	NotFound bool
+
 	Ref          *v1.ObjectReference
 	Unstructured *unstructured.Unstructured
 	Conditions   Conditions
