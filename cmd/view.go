@@ -9,6 +9,7 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/nkzk/xrefs/internal/k8s"
 	"github.com/nkzk/xrefs/internal/models"
+	"github.com/nkzk/xrefs/internal/ui"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -129,7 +130,7 @@ func (c *Cmd) watchResourceTree(
 	}
 	defer w.Stop()
 
-	prog := tea.NewProgram(models.NewModel(root), tea.WithOutput(k.Stdout))
+	prog := tea.NewProgram(ui.NewModel(root), tea.WithOutput(k.Stdout))
 
 	go c.watchProducer(ctx, kClient, root, prog, w)
 
@@ -147,11 +148,11 @@ func (c *Cmd) watchProducer(ctx context.Context, kClient k8s.Client, root *model
 		select {
 		case evt, ok := <-w.ResultChan():
 			if !ok {
-				prog.Send(models.QuitMsg{})
+				prog.Send(ui.QuitMsg{})
 				return
 			}
 			if evt.Type == watch.Deleted {
-				prog.Send(models.RootDeletedMsg{})
+				prog.Send(ui.RootDeletedMsg{})
 				return
 			}
 			if err := updateAndSend(ctx, root, kClient, prog); err != nil {
@@ -165,7 +166,7 @@ func (c *Cmd) watchProducer(ctx context.Context, kClient k8s.Client, root *model
 				return
 			}
 		case <-ctx.Done():
-			prog.Send(models.QuitMsg{})
+			prog.Send(ui.QuitMsg{})
 			return
 		}
 	}
@@ -176,7 +177,7 @@ func updateAndSend(ctx context.Context, r *models.Resource, kClient k8s.Client, 
 	current, err := kClient.GetUnstructured(ctx, r.Ref)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			prog.Send(models.RootNotFoundMsg{Ref: r.Ref})
+			prog.Send(ui.RootNotFoundMsg{Ref: r.Ref})
 			return nil
 		}
 
@@ -213,7 +214,7 @@ func updateAndSend(ctx context.Context, r *models.Resource, kClient k8s.Client, 
 		}
 	}
 
-	prog.Send(models.UpdateResourceMsg{
+	prog.Send(ui.UpdateResourceMsg{
 		Resource: r,
 	})
 
@@ -254,8 +255,8 @@ func loadResourceChildren(root *models.Resource) {
 // handleProducerError handles errors from the watch producer.
 func (c *Cmd) handleProducerError(prog *tea.Program, err error) {
 	if apierrors.IsNotFound(err) {
-		prog.Send(models.RootNotFoundMsg{})
+		prog.Send(ui.RootNotFoundMsg{})
 		return
 	}
-	prog.Send(models.RootErrMsg{Err: fmt.Errorf("error getting resource: %v", err)})
+	prog.Send(ui.RootErrMsg{Err: fmt.Errorf("error getting resource: %v", err)})
 }

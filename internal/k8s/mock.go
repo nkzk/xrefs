@@ -23,7 +23,13 @@ func mockXR() *unstructured.Unstructured {
 						map[string]any{
 							"apiVersion": "v1",
 							"kind":       "ConfigMap",
-							"name":       "example-secret",
+							"name":       "example",
+							"namespace":  "default",
+						},
+						map[string]any{
+							"apiVersion": "applications.azuread.m.upbound.io/v1beta1",
+							"kind":       "Application",
+							"name":       "example",
 							"namespace":  "default",
 						},
 					},
@@ -95,7 +101,7 @@ func mockApplication() *unstructured.Unstructured {
 					map[string]any{
 						"type":               "Ready",
 						"status":             "False",
-						"reason":             "Creating",
+						"reason":             "error: really long msg. the nodes are down cause my house burned down, contact the fire department, or try again in 15 minutes.",
 						"observedGeneration": int64(7),
 						"lastTransitionTime": "2025-10-10T12:55:42Z",
 					},
