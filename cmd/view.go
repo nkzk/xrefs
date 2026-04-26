@@ -145,6 +145,7 @@ func (c *Cmd) watchProducer(ctx context.Context, kClient k8s.Client, root *model
 
 	if err := update(ctx, root, kClient, prog); err != nil {
 		c.handleProducerError(prog, err)
+		
 		return
 	}
 	prog.Send(ui.UpdateResourceMsg{

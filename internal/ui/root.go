@@ -55,14 +55,12 @@ type (
 func (m Model) Init() tea.Cmd { return nil }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-
 	switch msg := msg.(type) {
 
 	case UpdateResourceMsg:
 		m.root = msg.Resource
 		m.rootUpdatedAt = time.Now()
 		return m, m.list.SetItems(flatten(*msg.Resource, 0))
-
 	case tea.KeyPressMsg:
 		if m.list.FilterState() == list.Filtering {
 			break // let list handle it
@@ -149,6 +147,7 @@ type resourceDelegate struct {
 	selected lipgloss.Style
 	normal   lipgloss.Style
 	notFound lipgloss.Style
+	err      lipgloss.Style
 }
 
 func NewResourceDelegate() resourceDelegate {
@@ -156,6 +155,7 @@ func NewResourceDelegate() resourceDelegate {
 		selected: lipgloss.NewStyle().Foreground(lipgloss.Color("#ffffff")).Bold(true),
 		normal:   lipgloss.NewStyle().Foreground(lipgloss.Color("#9b9b9b")),
 		notFound: lipgloss.NewStyle().Foreground(lipgloss.Color("#ff9898")),
+		err:      lipgloss.NewStyle().Foreground(lipgloss.Color("#ff5f5f")),
 	}
 }
 
@@ -168,26 +168,47 @@ func (d resourceDelegate) Update(msg tea.Msg, m *list.Model) tea.Cmd {
 func (d resourceDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
 	r := item.(models.Resource)
 
+	ready := condStatus(r, "Ready")
+	synced := condStatus(r, "Synced")
+	reason := shorten(condReason(r), 40)
+
+	// 🔥 override if error
+	if r.Error != nil {
+		ready = "-"
+		synced = "-"
+		reason = shorten(r.Error.Error(), 40)
+	}
+
+	if r.NotFound {
+		ready = "-"
+		synced = "-"
+		reason = "NOT FOUND"
+	}
+
 	row := fmt.Sprintf(
 		"%-48s  %-15s %-13s %-14s %s",
 		treeName(r),
 		namespace(r),
-		condStatus(r, "Ready"),
-		condStatus(r, "Synced"),
-		shorten(condReason(r), 40),
+		ready,
+		synced,
+		reason,
 	)
 
-	if r.NotFound {
+	isSelected := index == m.Index()
+
+	switch {
+	case r.NotFound && isSelected:
+		fmt.Fprint(w, d.notFound.Bold(true).Render(row))
+
+	case r.NotFound:
 		fmt.Fprint(w, d.notFound.Render(row))
-		return
-	}
 
-	if index == m.Index() {
+	case isSelected:
 		fmt.Fprint(w, d.selected.Render(row))
-		return
-	}
 
-	fmt.Fprint(w, d.normal.Render(row))
+	default:
+		fmt.Fprint(w, d.normal.Render(row))
+	}
 }
 
 func flatten(r models.Resource, depth int) []list.Item {
