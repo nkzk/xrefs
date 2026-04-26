@@ -24,8 +24,9 @@ func NewK8sClient(client client.Client) *K8sClient {
 	}
 }
 func (c K8sClient) GetResource(ctx context.Context, root *v1.ObjectReference) *models.Resource {
-	
 	result := &models.Resource{}
+
+	result.Ref = root
 	result.Unstructured.SetGroupVersionKind(root.GroupVersionKind())
 
 	err := c.Client.Get(
@@ -40,6 +41,17 @@ func (c K8sClient) GetResource(ctx context.Context, root *v1.ObjectReference) *m
 		result.Unstructured.SetNamespace(root.Namespace)
 		result.Error = err
 	}
+
+	// // update conditions
+	// conditions, ok, err := unstructured.NestedSlice(result.Unstructured.Object, "status", "conditions")
+	// if ok && err == nil {
+	// 	for _, c := range conditions {
+	// 		condition, ok := c.(models.Condition)
+	// 		if ok {
+	// 			result.Conditions = append(result.Conditions, condition)
+	// 		}
+	// 	}
+	// }
 
 	return result
 }
@@ -70,6 +82,24 @@ func (c MockClient) GetResource(ctx context.Context, root *v1.ObjectReference) *
 									"apiVersion": "v1",
 								},
 							},
+						},
+					},
+				},
+				"status": map[string]any{
+					"conditions": []map[string]any{
+						{
+							"type":               "Synced",
+							"status":             "True",
+							"reason":             "ReconcileSuccess",
+							"observedGeneration": 7,
+							"lastTransitionTime": "2025-10-10T12:55:42Z",
+						},
+						{
+							"type":               "Ready",
+							"status":             "False",
+							"reason":             "Creating",
+							"observedGeneration": 7,
+							"lastTransitionTime": "2025-10-10T12:55:42Z",
 						},
 					},
 				},

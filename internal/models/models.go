@@ -8,6 +8,7 @@ import (
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -30,8 +31,17 @@ type ResourceList struct {
 	Error error
 }
 
+type Condition struct {
+	Status             string `json:"status" yaml:"status"`
+	ConditionType      string `json:"type" yaml:"type"`
+	Reason             string `json:"reason" yaml:"reason"`
+	LastTransitionTime string `json:"lastTransitionTime" yaml:"lastTransitionTime"`
+}
+
 type Resource struct {
 	Unstructured unstructured.Unstructured
+	Ref          *v1.ObjectReference
+	Conditions   []Condition
 
 	ID       string
 	Parent   *Resource

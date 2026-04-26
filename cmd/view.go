@@ -18,7 +18,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/tools/reference"
 )
 
 type Cmd struct {
@@ -60,7 +59,7 @@ func (c *Cmd) Run(k *kong.Context) error {
 		return err
 	}
 
-	resourceoObjectRef, err := k8s.ResourceObjectFromMapping(resourceMapping, clientconfig, name, c.Namespace)
+	resourceoObjectRef, err := k8s.ResourceObjectRefFromMapping(resourceMapping, clientconfig, name, c.Namespace)
 	if err != nil {
 		return err
 	}
@@ -101,7 +100,9 @@ func (c *Cmd) watch(ctx context.Context, kClient k8s.Client, root *v1.ObjectRefe
 		}
 
 		for _, c := range current.Children {
-			child := kClient.GetResource(ctx, toObjectRef(&c.Unstructured))
+			child := kClient.GetResource(ctx, c.Ref)
+			
+
 
 		}
 
@@ -166,6 +167,7 @@ func loadResourceChildren(root *models.Resource) {
 
 			root.Children = append(root.Children, models.Resource{
 				Parent: root,
+				Ref:    &ref,
 				ID:     uuid.New().String(),
 				Unstructured: unstructured.Unstructured{
 					Object: u,
@@ -185,6 +187,15 @@ func (c *Cmd) handleProducerError(prog *tea.Program, err error) {
 	prog.Send(models.RootErrMsg{Err: fmt.Errorf("error getting resource: %v", err)})
 }
 
-func toObjectRef(obj runtime.Object, scheme *runtime.Scheme) (*corev1.ObjectReference, error) {
-	return reference.GetReference(scheme, obj)
+func objectRefFromUnstructured(v map[string]interface{}) (*corev1.ObjectReference, error) {
+	var ref corev1.ObjectReference
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(v, &ref); err != nil {
+		return nil, err
+	}
+
+	if ref.APIVersion == "" || ref.Kind == "" || ref.Name == "" {
+		return nil, fmt.Errorf("invalid object ref: apiVersion=%q kind=%q name=%q", ref.APIVersion, ref.Kind, ref.Name)
+	}
+
+	return &ref, nil
 }

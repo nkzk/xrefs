@@ -155,7 +155,7 @@ func ParseResourceName(resource, name string) (string, string, error) {
 	return "", "", errors.New("invalid resource format, use TYPE[.VERSION][.GROUP][/NAME]")
 }
 
-func ResourceObjectFromMapping(mapping *meta.RESTMapping, clientconfig clientcmd.ClientConfig, name, namespace string) (*v1.ObjectReference, error) {
+func ResourceObjectRefFromMapping(mapping *meta.RESTMapping, clientconfig clientcmd.ClientConfig, name, namespace string) (*v1.ObjectReference, error) {
 	if mapping.Scope.Name() == meta.RESTScopeNameNamespace {
 		if namespace == "" {
 			var err error
