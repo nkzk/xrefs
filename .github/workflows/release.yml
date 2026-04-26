@@ -27,7 +27,7 @@ jobs:
         run: |
           mkdir -p dist
           BIN_NAME=$(basename "$PWD")
-          go build -o "dist/${BIN_NAME}" .
+          go build -o "dist/${BIN_NAME}" ./cmd 
           echo "BIN_NAME=${BIN_NAME}" >> "$GITHUB_ENV"
 
       - name: Create GitHub Release
