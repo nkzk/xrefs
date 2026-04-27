@@ -9,7 +9,7 @@ import (
 )
 
 type Cmd struct {
-	Shortcut string
+	Shortcut string `help:"Key combination to trigger the plugin." default:"Shift-G"`
 }
 
 func (c *Cmd) Help() string {

@@ -94,6 +94,9 @@ func appendPlugin(doc []byte, key, shortcut, cmd, desc string, background bool, 
 	if key == "" {
 		return nil, fmt.Errorf("plugin name (key) cannot be empty")
 	}
+	if shortcut == "" {
+		return nil, fmt.Errorf("shortcut cannot be empty")
+	}
 
 	// Parse as generic maps → preserves unknown fields in other plugins.
 	root := map[string]any{}
