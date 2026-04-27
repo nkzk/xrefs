@@ -1,49 +1,49 @@
 ## xrefs
 
-A k9s plugin to quickly view and navigate through `.crossplane.resourceRefs` in an XR (Composite Resource)
+A CLI tool (and k9s plugin) to quickly view and navigate through sub-resources of Kubernetes resources like Crossplane claims or Flux kustomizations (WIP).
+
+The latest refactor is inspired by the [Crossplane](https://github.com/crossplane/crossplane) `beta trace` command.
 
 ## Install
 
-`go install github.com/nkzk/xrefs@latest`
-
-## Install in k9s
-
-`xrefs --install`
+```sh
+go install github.com/nkzk/xrefs@latest
+```
 
 ## Usage
 
+```sh
+xrefs view <kind>.<version>.<api-group>/<name> [flags]
+```
+
+### Examples
+
+```sh
+xrefs view my-xr.v1alpha1.example.io/name
+xrefs view my-xr.v1alpha1.example.io/name -n my-namespace
+```
+
+## k9s plugin
+
+I've added a helper command to help you install the cli as a k9s plugin. 
+
+This allows you to use the cli via a shortcut while selecting a resource in k9s, so you dont need to manage the cli args yourself.
+
+The k9s plugin config is appended only, and a backup is saved to the /tmp directory.
+
+### Install plugin
+
+```sh
+xrefs k9s install
+```
+
+### Usage in k9s
+
 1. Navigate to an XR in k9s
-2. Press `shift+g` to show XR resource references
-3. Navigate to a resource, press `y` for yaml or `d` for describe
-4. Press esc/q to quit yaml or describe window, or `ctrl+c` to quit the whole program.
+2. Press `Shift+G` to show XR resource references
+3. Navigate to a resource, press `y` for yaml
+4. Press `Esc`/`q` to quit yaml, or `Ctrl+C` to quit the whole program
 
-Some vim commands like k(up), j(down), g(top) G(bottom) are supported.
-
+Vim navigation commands are supported (hjkl)
 
 A help text is shown at the bottom for available commands.
-
-### extra flags
-
-Customize shortcut (have to not conflict with existing k9s shortcuts)
-
-```sh
---shortcut "Shift+G"
-```
-
-### other
-
-While not really made for it, you could use this without k9s
-
-```sh
-name="example"
-namespace="default"
-resourceName="application" # this is "kind"
-resourceGroup="group.domain.com" # api group
-resourceVersion="v1alpha1"
-```
-
-
-```sh
-xrefs --name=$name -namespace=$namespace -resourceName=$resourceName -resourceGroup=$resourceGroup -resourceVersion=$resourceVersion
-```
-
