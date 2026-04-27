@@ -24,20 +24,12 @@ plugins:
     scopes:
     - "all"
     args:
-    - --name 
-    - $NAME
-    - --namespace
-    - $namespace
-    - --resourceGroup
-    - $RESOURCE_GROUP
-    - --resourceName 
-    - $RESOURCE_NAME
-    - --resourceVersion
-    - $RESOURCE_VERSION
-    - --colComposition
-    - $COL-COMPOSITION
-    - --colCompositionRevision
-    - $COL-COMPOSITIONREVISION
+    - view
+    - $RESOURCE_NAME.$RESOURCE_VERSION.$RESOURCE_GROUP/$NAME
+    - -n
+    - $NAMESPACE
+    - --context
+    - $CONTEXT
     background: false
     `, pluginKey, shortCut, command)
 
@@ -125,13 +117,10 @@ func appendPlugin(doc []byte, key, shortcut, cmd, desc string, background bool, 
 		"background":  background,
 		"scopes":      append([]string(nil), scopes...),
 		"args": []string{
-			"--name", "$NAME",
-			"--namespace", "$namespace",
-			"--resourceGroup", "$RESOURCE_GROUP",
-			"--resourceName", "$RESOURCE_NAME",
-			"--resourceVersion", "$RESOURCE_VERSION",
-			"--colComposition", "$COL-COMPOSITION",
-			"--colCompositionRevision", "$COL-COMPOSITIONREVISION",
+			"view",
+			"$RESOURCE_NAME.$RESOURCE_VERSION.$RESOURCE_GROUP/$NAME",
+			"-n", "$NAMESPACE",
+			"--context", "$CONTEXT",
 		},
 	}
 
