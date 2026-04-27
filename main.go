@@ -13,8 +13,6 @@ var _ = kong.Must(&cli{})
 type debugFlag bool
 
 func (v debugFlag) BeforeApply(ctx *kong.Context) error {
-	// logger := logging.NewLogrLogger(zap.New(zap.UseDevMode(true)))
-	// ctx.BindTo(logger, (*logging.Logger)(nil))
 	return nil
 }
 
@@ -32,9 +30,6 @@ func main() {
 	parser := kong.Must(&cli{},
 		kong.Name("xrefs"),
 		kong.Description("A command-line tool for interacting with subresources of kubernetes resources like crossplane claims or flux-kustomization"),
-		// Binding a variable to kong context makes it available to all commands
-		// at runtime.
-		// kong.BindTo(logger, (*logging.Logger)(nil)),
 		kong.ConfigureHelp(kong.HelpOptions{
 			FlagsLast:      true,
 			Compact:        true,
