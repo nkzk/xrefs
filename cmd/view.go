@@ -145,7 +145,7 @@ func (c *Cmd) watchProducer(ctx context.Context, kClient k8s.Client, root *model
 
 	if err := update(ctx, root, kClient, prog); err != nil {
 		c.handleProducerError(prog, err)
-		
+
 		return
 	}
 	prog.Send(ui.UpdateResourceMsg{
@@ -248,6 +248,8 @@ func loadResourceChildren(root *models.Resource) {
 			return
 		}
 
+		parentNS := root.Unstructured.GetNamespace()
+
 		for _, r := range resourceRefs {
 			ref := corev1.ObjectReference{}
 
@@ -258,6 +260,10 @@ func loadResourceChildren(root *models.Resource) {
 
 			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(m, &ref); err != nil {
 				continue
+			}
+
+			if ref.Namespace == "" && parentNS != "" {
+				ref.Namespace = parentNS
 			}
 
 			root.Children = append(root.Children, *models.NewResource(nil, nil, &ref))

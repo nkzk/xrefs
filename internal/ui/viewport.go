@@ -25,8 +25,6 @@ type resourceViewModel struct {
 
 	rawYAML string
 	status  string
-
-	resource *models.Resource
 }
 
 func newResourceViewModel() resourceViewModel {
