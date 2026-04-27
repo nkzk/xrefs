@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/alecthomas/kong"
+	view "github.com/nkzk/xrefs/cmd"
 	"github.com/nkzk/xrefs/cmd/k9s"
 )
 
@@ -20,8 +21,8 @@ func (v debugFlag) BeforeApply(ctx *kong.Context) error {
 // the top-level cli
 type cli struct {
 	// subcommands
-	ViewCmd Cmd     `cmd:"" name:"view" help:"display subresources"`
-	K9sCmd  k9s.Cmd `cmd:"" name:"k9s" help:""`
+	ViewCmd view.Cmd `cmd:"" name:"view" help:"display subresources"`
+	K9sCmd  k9s.Cmd  `cmd:"" name:"k9s" help:""`
 
 	// flags
 	Debug debugFlag `help:"Enable debug logging"`
