@@ -17,6 +17,9 @@ type Resource struct {
 	Parent   *Resource
 	Children []Resource
 
+	Expanded       bool // whether children are shown in the tree
+	ChildrenLoaded bool // whether children have been fetched from the API
+
 	Depth  int
 	IsLast bool
 	Prefix string

@@ -45,6 +45,10 @@ type (
 		Resource *models.Resource
 	}
 
+	ExpandNodeMsg struct {
+		Resource *models.Resource
+	}
+
 	QuitMsg    struct{}
 	RootErrMsg struct {
 		Err error
@@ -86,6 +90,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, nil
 				}
 			}
+
+		case "x", "space":
+			if !m.showViewport {
+				selected, ok := m.list.SelectedItem().(models.Resource)
+				if ok {
+					node := findResourceByID(m.root, selected.ID)
+					if node != nil && len(node.Children) > 0 {
+						node.Expanded = !node.Expanded
+						cmd := m.list.SetItems(flatten(*m.root, 0))
+						if node.Expanded && !node.ChildrenLoaded {
+							return m, tea.Batch(cmd, func() tea.Msg {
+								return ExpandNodeMsg{Resource: node}
+							})
+						}
+						return m, cmd
+					}
+				}
+			}
 		}
 
 	case tea.WindowSizeMsg:
@@ -115,7 +137,7 @@ func (m Model) View() tea.View {
 	columns := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#6f6f6f")).
 		Render(fmt.Sprintf(
-			"%-48s  %-15s %-13s %-14s %s",
+			"%-64s  %-15s %-13s %-14s %s",
 			"RESOURCE",
 			"NAMESPACE",
 			"READY",
@@ -186,7 +208,7 @@ func (d resourceDelegate) Render(w io.Writer, m list.Model, index int, item list
 	}
 
 	row := fmt.Sprintf(
-		"%-48s  %-15s %-13s %-14s %s",
+		"%-64s  %-15s %-13s %-14s %s",
 		treeName(r),
 		namespace(r),
 		ready,
@@ -231,6 +253,10 @@ func flattenWithPrefix(r models.Resource, depth int, isLast bool, prefix string)
 		}
 	}
 
+	if !r.Expanded {
+		return out
+	}
+
 	for i, child := range r.Children {
 		out = append(out, flattenWithPrefix(
 			child,
@@ -241,6 +267,19 @@ func flattenWithPrefix(r models.Resource, depth int, isLast bool, prefix string)
 	}
 
 	return out
+}
+
+// findResourceByID traverses the resource tree and returns a pointer to the node with the given ID.
+func findResourceByID(r *models.Resource, id string) *models.Resource {
+	if r.ID == id {
+		return r
+	}
+	for i := range r.Children {
+		if found := findResourceByID(&r.Children[i], id); found != nil {
+			return found
+		}
+	}
+	return nil
 }
 
 func treeName(r models.Resource) string {
@@ -265,7 +304,23 @@ func treeName(r models.Resource) string {
 		}
 	}
 
-	return fmt.Sprintf("%s%s/%s", prefix, kind, name)
+	label := fmt.Sprintf("%s/%s", kind, name)
+
+	if len(r.Children) > 0 {
+		if r.Expanded {
+			label = "▼ " + label
+		} else {
+			label = "▶ " + label
+		}
+	}
+
+	const maxCol = 64
+	maxLabel := maxCol - len(prefix)
+	if maxLabel > 0 && len(label) > maxLabel {
+		label = label[:maxLabel-1] + "…"
+	}
+
+	return prefix + label
 }
 
 func namespace(r models.Resource) string {
