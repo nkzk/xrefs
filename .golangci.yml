@@ -1,0 +1,26 @@
+version: "2"
+linters:
+  default: none
+  enable:
+    - errcheck
+    - ineffassign
+    - staticcheck
+    - gocritic
+    - unused
+    - govet
+    - gosec
+    # - revive
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths: []
+formatters:
+  enable:
+    - gofmt
+  exclusions:
+    generated: lax
+    paths: []

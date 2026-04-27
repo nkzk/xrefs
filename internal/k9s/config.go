@@ -8,25 +8,11 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
 )
-
-type K9SConfig struct {
-	Plugins []Plugin `json:"plugins" yaml:"plugins"`
-}
-
-type Plugin struct {
-	Name        string
-	ShortCut    string
-	description string
-	Command     string
-	Background  bool
-	Scopes      []string
-}
 
 func config(pluginKey, shortCut, command string) string {
 	s := fmt.Sprintf(`
@@ -57,6 +43,7 @@ plugins:
 
 	return strings.TrimPrefix(s, "\n")
 }
+
 func CreatePluginFile(dstPath, pluginKey, shortCut, command string) error {
 	if pluginKey == "" {
 		return errors.New("plugin name cannot be empty")
@@ -149,31 +136,4 @@ func appendPlugin(doc []byte, key, shortcut, cmd, desc string, background bool, 
 	}
 
 	return yaml.Marshal(root)
-}
-
-func appendKV(m *yaml.Node, k, v string) {
-	m.Content = append(m.Content,
-		&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: k},
-		&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: v},
-	)
-}
-
-func appendBool(m *yaml.Node, k string, b bool) {
-	m.Content = append(m.Content,
-		&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: k},
-		&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!bool", Value: strconv.FormatBool(b)},
-	)
-}
-
-func appendList(m *yaml.Node, key string, values []string) {
-	k := &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: key}
-	seq := &yaml.Node{Kind: yaml.SequenceNode}
-	for _, v := range values {
-		seq.Content = append(seq.Content, &yaml.Node{
-			Kind:  yaml.ScalarNode,
-			Tag:   "!!str",
-			Value: v,
-		})
-	}
-	m.Content = append(m.Content, k, seq)
 }
