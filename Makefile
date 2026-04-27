@@ -2,7 +2,7 @@ GOLANGCI_LINT_VERSION ?= v2.11.4
 GOLANGCI_LINT         = $(LOCALBIN)/golangci-lint-$(GOLANGCI_LINT_VERSION)
 
 dev:
-	go run ./cmd
+	go run .
 
 .PHONY: golangci-lint
 golangci-lint: $(GOLANGCI_LINT)
