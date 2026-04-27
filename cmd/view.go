@@ -3,6 +3,7 @@ package view
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -14,6 +15,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 )
 
@@ -60,6 +62,15 @@ func (c *Cmd) runMock(ctx context.Context, k *kong.Context) error {
 		Namespace:  "default",
 	}
 
+	if c.Resource == "kustomization" {
+		rootRef = &corev1.ObjectReference{
+			APIVersion: "kustomize.toolkit.fluxcd.io/v1",
+			Kind:       "Kustomization",
+			Name:       "example",
+			Namespace:  "default",
+		}
+	}
+
 	root, err := kClient.GetUnstructured(ctx, rootRef)
 	if err != nil {
 		return err
@@ -70,6 +81,7 @@ func (c *Cmd) runMock(ctx context.Context, k *kong.Context) error {
 		root,
 		rootRef,
 	)
+	rootResource.Expanded = true
 
 	return c.watchResourceTree(ctx, k, kClient, watcher, rootResource)
 }
@@ -113,6 +125,7 @@ func (c *Cmd) runKubernetes(ctx context.Context, k *kong.Context) error {
 		root,
 		resourceObjectRef,
 	)
+	rootResource.Expanded = true
 
 	return c.watchResourceTree(ctx, k, kClient, watcher, rootResource)
 }
@@ -222,8 +235,13 @@ func update(ctx context.Context, r *models.Resource, kClient k8s.Client, prog *t
 
 	r.Conditions = freshConditions
 
-	// Update children array
 	loadResourceChildren(r)
+
+	if !r.Expanded {
+		return nil
+	}
+
+	r.ChildrenLoaded = true
 
 	// Update children
 	for i := range r.Children {
@@ -235,16 +253,68 @@ func update(ctx context.Context, r *models.Resource, kClient k8s.Client, prog *t
 	return nil
 }
 
-// loads subresource refs of a resource (crossplane XR) to root resource Children array
+// loads resource-refs of a root resource to the Children array.
 func loadResourceChildren(root *models.Resource) {
-	// reset the array to ensure we start fresh
-	root.Children = []models.Resource{}
+	existingChildren := make(map[string]*models.Resource)
+	for i := range root.Children {
+		c := &root.Children[i]
+		if c.Ref != nil {
+			key := fmt.Sprintf("%s/%s/%s", c.Ref.APIVersion, c.Ref.Kind, c.Ref.Name)
+			existingChildren[key] = c
+		}
+	}
+
+	var newChildren []models.Resource
 
 	switch root.Unstructured.GroupVersionKind() {
-	// assume resource is a crossplane XR
+	case schema.GroupVersionKind{
+		Group:   "kustomize.toolkit.fluxcd.io",
+		Version: "v1",
+		Kind:    "Kustomization"}:
+		entries, ok, err := unstructured.NestedSlice(root.Unstructured.Object, "status", "inventory", "entries")
+		if err != nil || !ok {
+			root.Children = nil
+			return
+		}
+
+		for _, e := range entries {
+			m, ok := e.(map[string]any)
+			if !ok {
+				continue
+			}
+
+			// id format: <namespace>_<name>_<group>_<kind>
+			// "v" for version
+			id, _ := m["id"].(string)
+			version, _ := m["v"].(string)
+
+			parts := strings.SplitN(id, "_", 4)
+			if len(parts) < 4 {
+				continue
+			}
+
+			ns, name, group, kind := parts[0], parts[1], parts[2], parts[3]
+
+			apiVersion := version
+			if group != "" {
+				apiVersion = group + "/" + version
+			}
+
+			ref := &corev1.ObjectReference{
+				APIVersion: apiVersion,
+				Kind:       kind,
+				Name:       name,
+				Namespace:  ns,
+			}
+
+			newChildren = append(newChildren, *models.NewResource(nil, nil, ref))
+		}
 	default:
+		// assume crossplane XR
+
 		resourceRefs, ok, err := unstructured.NestedSlice(root.Unstructured.Object, "spec", "crossplane", "resourceRefs")
 		if err != nil || !ok {
+			root.Children = nil
 			return
 		}
 
@@ -266,10 +336,28 @@ func loadResourceChildren(root *models.Resource) {
 				ref.Namespace = parentNS
 			}
 
-			root.Children = append(root.Children, *models.NewResource(nil, nil, &ref))
+			newChildren = append(newChildren, *models.NewResource(nil, nil, &ref))
 		}
-		// other resources can be represented as a case, for example flux kustomization
 	}
+
+	// Merge: preserve Expanded/ChildrenLoaded/Children state from existing children
+	for i := range newChildren {
+		ref := newChildren[i].Ref
+		if ref != nil {
+			key := fmt.Sprintf("%s/%s/%s", ref.APIVersion, ref.Kind, ref.Name)
+			if existing, ok := existingChildren[key]; ok {
+				newChildren[i].Expanded = existing.Expanded
+				newChildren[i].ChildrenLoaded = existing.ChildrenLoaded
+				newChildren[i].Children = existing.Children
+				newChildren[i].Unstructured = existing.Unstructured
+				newChildren[i].Conditions = existing.Conditions
+				newChildren[i].Error = existing.Error
+				newChildren[i].NotFound = existing.NotFound
+			}
+		}
+	}
+
+	root.Children = newChildren
 }
 
 // handleProducerError handles errors from the watch producer.

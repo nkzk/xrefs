@@ -52,6 +52,10 @@ func NewMockClient() *MockClient {
 
 func (c MockClient) GetUnstructured(ctx context.Context, r *v1.ObjectReference) (*unstructured.Unstructured, error) {
 	switch r.Kind {
+	case mockFluxKustomizationKind:
+		return mockFluxKustomization(), nil
+	case mockClusterRoleBindingKind:
+		return mockClusterRoleBinding(), nil
 	case mockXRKind:
 		return mockXR(), nil
 	case mockApplicationKind:
