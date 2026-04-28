@@ -157,7 +157,7 @@ func mockApplication() *unstructured.Unstructured {
 					map[string]any{
 						"type":               "Ready",
 						"status":             "False",
-						"reason":             "error: really long msg. the nodes are down cause my house burned down, contact the fire department, or try again in 15 minutes.",
+						"reason":             "ReconcileError",
 						"observedGeneration": int64(7),
 						"lastTransitionTime": "2025-10-10T12:55:42Z",
 					},
