@@ -4,7 +4,7 @@ A CLI tool (and k9s plugin) to quickly view and navigate through sub-resources o
 
 The latest refactor is inspired by the [Crossplane](https://github.com/crossplane/crossplane) `beta trace` command.
 
-<img alt="demo" src=".github/demo.gif" width="600" />
+<img alt="demo" src=".github/demo.gif" width="800" />
 
 
 ## Install

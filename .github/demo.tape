@@ -1,8 +1,8 @@
 Output demo.gif
 
-Set FontSize 24
-Set Width 2400
-Set Height 800
+Set FontSize 28
+Set Width 3600
+Set Height 1000
 
 Type "xrefs view kind.version.group/name -n default --mock"
 
