@@ -194,7 +194,6 @@ func (d resourceDelegate) Render(w io.Writer, m list.Model, index int, item list
 	synced := condStatus(r, "Synced")
 	reason := shorten(condReason(r), 40)
 
-	// 🔥 override if error
 	if r.Error != nil {
 		ready = "-"
 		synced = "-"
@@ -204,7 +203,7 @@ func (d resourceDelegate) Render(w io.Writer, m list.Model, index int, item list
 	if r.NotFound {
 		ready = "-"
 		synced = "-"
-		reason = "NOT FOUND"
+		reason = "Resource was not found"
 	}
 
 	row := fmt.Sprintf(

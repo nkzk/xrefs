@@ -1,8 +1,11 @@
 ## xrefs
 
-A CLI tool (and k9s plugin) to quickly view and navigate through sub-resources of Kubernetes resources like Crossplane claims or Flux kustomizations (WIP).
+A CLI tool (and k9s plugin) to quickly view and navigate through sub-resources of Kubernetes resources like Crossplane claims or Flux kustomizations.
 
 The latest refactor is inspired by the [Crossplane](https://github.com/crossplane/crossplane) `beta trace` command.
+
+<img alt="demo" src=".github/demo.gif" width="600" />
+
 
 ## Install
 
