@@ -1,7 +1,6 @@
 package k8s
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -9,11 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nkzk/xrefs/internal/models"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/disk"
 	"k8s.io/client-go/discovery/cached/memory"
@@ -181,8 +178,4 @@ func ResourceObjectRefFromMapping(mapping *meta.RESTMapping, clientconfig client
 		Name:       name,
 		Namespace:  namespace,
 	}, nil
-}
-
-type ResourceWatcher interface {
-	WatchResource(ctx context.Context, root *models.Resource) (watch.Interface, error)
 }
