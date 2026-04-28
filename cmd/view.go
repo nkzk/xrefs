@@ -24,8 +24,10 @@ type Cmd struct {
 	Name      string `default:"" name:"name" arg:"" help:"resource name. optional" group:"resource"`
 	Namespace string `default:"" name:"namespace" help:"resource namespace" group:"resource" short:"n"`
 
-	Context     string `default:"" help:"kubernetes context" name:"context" short:"c"`
-	CacheOnDisk bool   `help:"enable kubernetes discovery client caching to file instead of memory"`
+	KubeConfig string `default:"" help:"kubernetes kubeconfig location" name:"kube-config"`
+	Context    string `default:"" help:"kubernetes context" name:"context" short:"c"`
+
+	CacheOnDisk bool `help:"enable kubernetes discovery client caching to file instead of memory"`
 
 	Mock bool `default:"false" help:"mock mode for development" group:"development" xor:"resource,development"`
 }
@@ -87,7 +89,7 @@ func (c *Cmd) runMock(ctx context.Context, k *kong.Context) error {
 }
 
 func (c *Cmd) runKubernetes(ctx context.Context, k *kong.Context) error {
-	clientconfig, client, rmapper, err := k8s.SetupKubeClient(c.Context, c.CacheOnDisk)
+	clientconfig, client, rmapper, err := k8s.SetupKubeClient(c.KubeConfig, c.Context, c.CacheOnDisk)
 	if err != nil {
 		return err
 	}

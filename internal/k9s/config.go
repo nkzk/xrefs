@@ -30,6 +30,8 @@ plugins:
     - $NAMESPACE
     - --context
     - $CONTEXT
+	- --kube-config
+	- $KUBECONFIG
     background: false
     `, pluginKey, shortCut, command)
 
