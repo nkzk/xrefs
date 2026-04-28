@@ -23,10 +23,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func SetupKubeClient(context string, diskCache bool) (clientcmd.ClientConfig, client.WithWatch, meta.RESTMapper, error) {
+func SetupKubeClient(kc, context string, diskCache bool) (clientcmd.ClientConfig, client.WithWatch, meta.RESTMapper, error) {
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	if kc != "" {
+		loadingRules.ExplicitPath = kc
+	}
 	cf := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		clientcmd.NewDefaultClientConfigLoadingRules(),
-		&clientcmd.ConfigOverrides{CurrentContext: context},
+		loadingRules,
+		&clientcmd.ConfigOverrides{
+			CurrentContext: context,
+		},
 	)
 
 	kubeconfig, err := cf.ClientConfig()
