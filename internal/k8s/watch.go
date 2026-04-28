@@ -11,6 +11,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+type ResourceWatcher interface {
+	WatchResource(ctx context.Context, root *models.Resource) (watch.Interface, error)
+}
+
 type KubernetesResourceWatcher struct {
 	Client client.Client
 }
@@ -42,7 +46,7 @@ func (w KubernetesResourceWatcher) WatchResource(
 
 type MockResourceWatcher struct{}
 
-func NewMockResourceWatcher() *MockResourceWatcher{
+func NewMockResourceWatcher() *MockResourceWatcher {
 	return &MockResourceWatcher{}
 }
 
