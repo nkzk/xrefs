@@ -4,7 +4,6 @@ A CLI tool (and k9s plugin) to quickly view and navigate through sub-resources o
 
 The latest refactor is inspired by the [Crossplane](https://github.com/crossplane/crossplane) `beta trace` command.
 
-
 ## Install
 
 ```sh
@@ -16,6 +15,9 @@ go install github.com/nkzk/xrefs@latest
 ```sh
 xrefs view <kind>.<version>.<api-group>/<name> [flags]
 ```
+
+![alt text](.github/image.png)
+
 
 ### Examples
 
