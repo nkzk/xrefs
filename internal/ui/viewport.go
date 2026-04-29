@@ -90,7 +90,7 @@ func (m resourceViewModel) Update(msg tea.Msg) (resourceViewModel, tea.Cmd) {
 }
 
 func (m resourceViewModel) View() tea.View {
-	footerText := "g top • G bottom • c copy YAML • q back • ctrl+c quit"
+	footerText := "g top • G bottom • c copy YAML • q back • ctrl+c, q quit"
 
 	if m.status != "" {
 		footerText += " • " + m.status
