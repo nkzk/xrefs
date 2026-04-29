@@ -79,7 +79,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.showViewport = false
 				return m, nil
 			}
-			return m, nil
+
+			return m, tea.Quit
 
 		case "y", "enter":
 			if !m.showViewport {
