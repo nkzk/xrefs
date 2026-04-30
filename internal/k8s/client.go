@@ -62,6 +62,12 @@ func (c MockClient) GetUnstructured(ctx context.Context, r *v1.ObjectReference) 
 		return mockApplication(), nil
 	case mockConfigMapKind:
 		return mockConfigMap(), nil
+	case mockRoleAssignmentKind:
+		return mockRoleAssignment(), nil
+	case mockUsageKind:
+		return mockUsage(), nil
+	case mockUserAssignedIdentityKind:
+		return mockUserAssignedIdentity(), nil
 	default:
 		return nil, fmt.Errorf("kind '%s' is not implemented in mock client: %w", r.Kind, apierrors.NewNotFound(
 			schema.GroupResource{

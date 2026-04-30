@@ -46,8 +46,8 @@ func NewModel(root *models.Resource) *Root {
 	r := &Root{
 		help: h,
 		keymap: Keymap{
-			NextTab: key.NewBinding(key.WithKeys("tab"), key.WithHelp("⭾", "next tab")),
-			PrevTab: key.NewBinding(key.WithKeys("shift+tab"), key.WithHelp("⇧⭾", "prev tab")),
+			NextTab: key.NewBinding(key.WithKeys("tab"), key.WithHelp("\u21E5", "next tab")),
+			PrevTab: key.NewBinding(key.WithKeys("shift+tab"), key.WithHelp("⇧\u21E5", "prev tab")),
 			Quit:    key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "quit")),
 		},
 	}
