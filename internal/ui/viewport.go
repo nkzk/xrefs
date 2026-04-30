@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"charm.land/bubbles/v2/help"
+	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -25,12 +27,38 @@ type resourceViewModel struct {
 
 	rawYAML string
 	status  string
+
+	keyMap ResourceViewKeymap
+	help   help.Model
+}
+
+type ResourceViewKeymap struct {
+	Back   key.Binding
+	Copy   key.Binding
+	Top    key.Binding
+	Bottom key.Binding
 }
 
 func newResourceViewModel() resourceViewModel {
 	return resourceViewModel{
 		viewport: viewport.New(),
+		keyMap: ResourceViewKeymap{
+			Back:   key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "back")),
+			Copy:   key.NewBinding(key.WithKeys("c"), key.WithHelp("c", "copy to clipboard")),
+			Top:    key.NewBinding(key.WithKeys("G"), key.WithHelp("G", "top")),
+			Bottom: key.NewBinding(key.WithKeys("g"), key.WithHelp("g", "bottom")),
+		},
+		help: help.New(),
 	}
+}
+
+func (m resourceViewModel) ShortHelpView() string {
+	return m.help.ShortHelpView([]key.Binding{
+		m.keyMap.Top,
+		m.keyMap.Bottom,
+		m.keyMap.Back,
+		m.keyMap.Copy,
+	})
 }
 
 type clearStatusMsg struct{}
@@ -90,24 +118,16 @@ func (m resourceViewModel) Update(msg tea.Msg) (resourceViewModel, tea.Cmd) {
 }
 
 func (m resourceViewModel) View() tea.View {
-	footerText := "g top • G bottom • c copy YAML • q back • ctrl+c, q quit"
-
-	if m.status != "" {
-		footerText += " • " + m.status
-	}
-
 	footer := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#6f6f6f")).
-		Render(footerText)
+		Render(m.ShortHelpView())
 
 	body := strings.Join([]string{
 		m.viewport.View(),
 		footer,
 	}, "\n")
 
-	v := tea.NewView(docStyle.Render(body))
-	v.AltScreen = true
-	return v
+	return tea.NewView(docStyle.Render(body))
 }
 func (m *resourceViewModel) SetResource(r *models.Resource) {
 	y, err := toYAML(r.Unstructured)
