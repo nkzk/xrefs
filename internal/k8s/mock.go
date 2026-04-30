@@ -3,11 +3,14 @@ package k8s
 import "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 const (
-	mockFluxKustomizationKind  = "Kustomization"
-	mockXRKind                 = "MyXR"
-	mockApplicationKind        = "Application"
-	mockConfigMapKind          = "ConfigMap"
-	mockClusterRoleBindingKind = "ClusterRoleBinding"
+	mockFluxKustomizationKind    = "Kustomization"
+	mockXRKind                   = "MyXR"
+	mockApplicationKind          = "Application"
+	mockConfigMapKind            = "ConfigMap"
+	mockClusterRoleBindingKind   = "ClusterRoleBinding"
+	mockUsageKind                = "Usage"
+	mockUserAssignedIdentityKind = "UserAssignedIdentity"
+	mockRoleAssignmentKind       = "RoleAssignment"
 )
 
 func mockFluxKustomization() *unstructured.Unstructured {
@@ -56,19 +59,37 @@ func mockXR() *unstructured.Unstructured {
 						map[string]any{
 							"apiVersion": "v1",
 							"kind":       "ConfigMap",
-							"name":       "example",
+							"name":       "example-cm",
 							"namespace":  "default",
 						},
 						map[string]any{
 							"apiVersion": "applications.azuread.m.upbound.io/v1beta1",
 							"kind":       "Application",
-							"name":       "example",
+							"name":       "example-application",
 							"namespace":  "default",
 						},
 						map[string]any{
 							"apiVersion": "ayo",
 							"kind":       "DoesNotExist",
 							"name":       "example",
+							"namespace":  "default",
+						},
+						map[string]any{
+							"apiVersion": "protection.crossplane.io/v1beta1",
+							"kind":       "Usage",
+							"name":       "example-usage",
+							"namespace":  "default",
+						},
+						map[string]any{
+							"apiVersion": "example.io/v1beta1",
+							"kind":       "UserAssignedIdentity",
+							"name":       "example-identity",
+							"namespace":  "default",
+						},
+						map[string]any{
+							"apiVersion": "authorization.azure.m.upbound.io/v1beta1",
+							"kind":       "RoleAssignment",
+							"name":       "example-roleassignment",
 							"namespace":  "default",
 						},
 					},
@@ -133,13 +154,13 @@ func mockUsage() *unstructured.Unstructured {
 	return &unstructured.Unstructured{
 		Object: map[string]any{
 			"apiVersion": "protection.crossplane.io/v1beta1",
-			"kind":       "Usage",
+			"kind":       mockUsageKind,
 			"metadata": map[string]any{
 				"name":      "example-usage",
 				"namespace": "default",
 				"annotations": map[string]any{
-					"crossplane.io/composition-resource-name": "member-uses-identity",
-					"crossplane.io/usage-details":             "Member/example-member uses UserAssignedIdentity/example-identity",
+					"crossplane.io/composition-resource-name": "roleassignment-uses-identity",
+					"crossplane.io/usage-details":             "RoleAssignment/example-roleassignment uses UserAssignedIdentity/example-identity",
 				},
 				"labels": map[string]any{
 					"crossplane.io/composite": "example",
@@ -203,7 +224,7 @@ func mockRoleAssignment() *unstructured.Unstructured {
 	return &unstructured.Unstructured{
 		Object: map[string]any{
 			"apiVersion": "authorization.azure.m.upbound.io/v1beta1",
-			"kind":       "RoleAssignment",
+			"kind":       mockRoleAssignmentKind,
 			"metadata": map[string]any{
 				"name":      "example-roleassignment",
 				"namespace": "default",
@@ -234,6 +255,10 @@ func mockRoleAssignment() *unstructured.Unstructured {
 					"roleDefinitionName": "Owner",
 					"scope":              "/subscriptions/00000000-0000-0000-0000-000000000004",
 				},
+				"providerConfigRef": map[string]any{
+					"name": "example-providerconfig",
+					"kind": "ProviderConfig",
+				},
 			},
 			"status": map[string]any{
 				"conditions": []any{
@@ -260,7 +285,7 @@ func mockUserAssignedIdentity() *unstructured.Unstructured {
 	return &unstructured.Unstructured{
 		Object: map[string]any{
 			"apiVersion": "managedidentity.azure.m.upbound.io/v1beta1",
-			"kind":       "UserAssignedIdentity",
+			"kind":       mockUserAssignedIdentityKind,
 			"metadata": map[string]any{
 				"name":      "example-identity",
 				"namespace": "default",
@@ -287,6 +312,10 @@ func mockUserAssignedIdentity() *unstructured.Unstructured {
 					"location":          "norwayeast",
 					"name":              "example-identity",
 					"resourceGroupName": "example-rg",
+				},
+				"providerConfigRef": map[string]any{
+					"name": "example-providerconfig",
+					"kind": "ProviderConfig",
 				},
 			},
 			"status": map[string]any{
@@ -332,6 +361,10 @@ func mockApplication() *unstructured.Unstructured {
 						"displayName": "hi",
 					},
 				},
+				"providerConfigRef": map[string]any{
+					"name": "example-providerconfig",
+					"kind": "ProviderConfig",
+				},
 			},
 			"status": map[string]any{
 				"conditions": []any{
@@ -350,6 +383,40 @@ func mockApplication() *unstructured.Unstructured {
 						"lastTransitionTime": "2025-10-10T12:55:42Z",
 					},
 				},
+			},
+		},
+	}
+}
+
+func mockProviderConfig() *unstructured.Unstructured {
+	return &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "azure.m.upbound.io/v1beta1",
+			"kind":       "ProviderConfig",
+			"metadata": map[string]any{
+				"name": "example",
+			},
+			"spec": map[string]any{},
+		},
+	}
+}
+
+func mockProviderConfigUsage() *unstructured.Unstructured {
+	return &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "azure.m.upbound.io/v1beta1",
+			"kind":       "ProviderConfigUsage",
+			"metadata": map[string]any{
+				"name": "example-providerconfigusage",
+			},
+			"providerConfigRef": map[string]any{
+				"name": "example",
+			},
+			"resourceRef": map[string]any{
+				"apiVersion": "azure.crossplane.io/v1alpha3",
+				"kind":       "ResourceGroup",
+				"name":       "example-rg",
+				"uid":        "00000000-0000-0000-0000-000000000006",
 			},
 		},
 	}
