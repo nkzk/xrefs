@@ -129,6 +129,194 @@ func mockClusterRoleBinding() *unstructured.Unstructured {
 	}
 }
 
+func mockUsage() *unstructured.Unstructured {
+	return &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "protection.crossplane.io/v1beta1",
+			"kind":       "Usage",
+			"metadata": map[string]any{
+				"name":      "example-usage",
+				"namespace": "default",
+				"annotations": map[string]any{
+					"crossplane.io/composition-resource-name": "member-uses-identity",
+					"crossplane.io/usage-details":             "Member/example-member uses UserAssignedIdentity/example-identity",
+				},
+				"labels": map[string]any{
+					"crossplane.io/composite": "example",
+				},
+				"ownerReferences": []any{
+					map[string]any{
+						"apiVersion":         "example.io/v1alpha1",
+						"blockOwnerDeletion": true,
+						"controller":         true,
+						"kind":               "Environment",
+						"name":               "example",
+						"uid":                "00000000-0000-0000-0000-000000000001",
+					},
+					map[string]any{
+						"apiVersion": "example.io/v1beta1",
+						"kind":       "Member",
+						"name":       "example-member",
+						"uid":        "00000000-0000-0000-0000-000000000002",
+					},
+				},
+			},
+			"spec": map[string]any{
+				"by": map[string]any{
+					"apiVersion": "example.io/v1beta1",
+					"kind":       "Member",
+					"resourceRef": map[string]any{
+						"name": "example-member",
+					},
+					"resourceSelector": map[string]any{
+						"matchControllerRef": true,
+					},
+				},
+				"of": map[string]any{
+					"apiVersion": "example.io/v1beta1",
+					"kind":       "UserAssignedIdentity",
+					"resourceRef": map[string]any{
+						"name": "example-identity",
+					},
+					"resourceSelector": map[string]any{
+						"matchControllerRef": true,
+					},
+				},
+				"replayDeletion": true,
+			},
+			"status": map[string]any{
+				"conditions": []any{
+					map[string]any{
+						"type":               "Ready",
+						"status":             "True",
+						"reason":             "Available",
+						"observedGeneration": int64(3),
+						"lastTransitionTime": "2026-03-19T09:24:26Z",
+					},
+				},
+			},
+		},
+	}
+}
+
+func mockRoleAssignment() *unstructured.Unstructured {
+	return &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "authorization.azure.m.upbound.io/v1beta1",
+			"kind":       "RoleAssignment",
+			"metadata": map[string]any{
+				"name":      "example-roleassignment",
+				"namespace": "default",
+				"annotations": map[string]any{
+					"crossplane.io/composition-resource-name": "roleassignment",
+				},
+				"labels": map[string]any{
+					"crossplane.io/composite": "example",
+					"crossplane.io/in-use":    "true",
+					"identity":                "provider",
+				},
+				"ownerReferences": []any{
+					map[string]any{
+						"apiVersion":         "example.io/v1alpha1",
+						"blockOwnerDeletion": true,
+						"controller":         true,
+						"kind":               "Environment",
+						"name":               "example",
+						"uid":                "00000000-0000-0000-0000-000000000001",
+					},
+				},
+			},
+			"spec": map[string]any{
+				"forProvider": map[string]any{
+					"name":               "example",
+					"principalId":        "00000000-0000-0000-0000-000000000003",
+					"principalType":      "ServicePrincipal",
+					"roleDefinitionName": "Owner",
+					"scope":              "/subscriptions/00000000-0000-0000-0000-000000000004",
+				},
+			},
+			"status": map[string]any{
+				"conditions": []any{
+					map[string]any{
+						"type":               "Ready",
+						"status":             "True",
+						"reason":             "Available",
+						"lastTransitionTime": "2026-03-19T09:27:49Z",
+					},
+					map[string]any{
+						"type":               "Synced",
+						"status":             "True",
+						"reason":             "ReconcileSuccess",
+						"observedGeneration": int64(3),
+						"lastTransitionTime": "2026-04-30T15:21:47Z",
+					},
+				},
+			},
+		},
+	}
+}
+
+func mockUserAssignedIdentity() *unstructured.Unstructured {
+	return &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "managedidentity.azure.m.upbound.io/v1beta1",
+			"kind":       "UserAssignedIdentity",
+			"metadata": map[string]any{
+				"name":      "example-identity",
+				"namespace": "default",
+				"annotations": map[string]any{
+					"crossplane.io/composition-resource-name": "identity",
+				},
+				"labels": map[string]any{
+					"crossplane.io/composite": "example",
+					"crossplane.io/in-use":    "true",
+				},
+				"ownerReferences": []any{
+					map[string]any{
+						"apiVersion":         "example.io/v1alpha1",
+						"blockOwnerDeletion": true,
+						"controller":         true,
+						"kind":               "Environment",
+						"name":               "example",
+						"uid":                "00000000-0000-0000-0000-000000000001",
+					},
+				},
+			},
+			"spec": map[string]any{
+				"forProvider": map[string]any{
+					"location":          "norwayeast",
+					"name":              "example-identity",
+					"resourceGroupName": "example-rg",
+				},
+			},
+			"status": map[string]any{
+				"atProvider": map[string]any{
+					"clientId":          "00000000-0000-0000-0000-000000000005",
+					"principalId":       "00000000-0000-0000-0000-000000000003",
+					"location":          "norwayeast",
+					"name":              "example-identity",
+					"resourceGroupName": "example-rg",
+				},
+				"conditions": []any{
+					map[string]any{
+						"type":               "Ready",
+						"status":             "True",
+						"reason":             "Available",
+						"lastTransitionTime": "2026-03-19T09:24:11Z",
+					},
+					map[string]any{
+						"type":               "Synced",
+						"status":             "True",
+						"reason":             "ReconcileSuccess",
+						"observedGeneration": int64(2),
+						"lastTransitionTime": "2026-04-30T15:17:41Z",
+					},
+				},
+			},
+		},
+	}
+}
+
 func mockApplication() *unstructured.Unstructured {
 	return &unstructured.Unstructured{
 		Object: map[string]any{
