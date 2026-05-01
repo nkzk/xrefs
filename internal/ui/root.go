@@ -8,7 +8,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 	lipgloss "charm.land/lipgloss/v2"
 	"github.com/nkzk/xrefs/internal/models"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 type Tab interface {
@@ -54,7 +53,7 @@ func NewModel(root *models.Resource) *Root {
 
 	r.tabs = []Tab{
 		NewOverview(root, r),
-		NewGraph([]unstructured.Unstructured{}, r),
+		NewGraph(root, r),
 	}
 
 	return r
