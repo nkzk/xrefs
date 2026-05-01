@@ -54,7 +54,7 @@ func NewModel(root *models.Resource) *Root {
 
 	r.tabs = []Tab{
 		NewOverview(root, r),
-		NewDependency([]unstructured.Unstructured{}, r),
+		NewGraph([]unstructured.Unstructured{}, r),
 	}
 
 	return r

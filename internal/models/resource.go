@@ -20,10 +20,6 @@ type Resource struct {
 	Expanded       bool // whether children are shown in the tree
 	ChildrenLoaded bool // whether children have been fetched from the API
 
-	Depth  int
-	IsLast bool
-	Prefix string
-
 	Error error
 }
 
@@ -39,12 +35,6 @@ func NewResource(
 		Ref:          ref,
 	}
 }
-
-// implement tea list item interface
-
-func (r Resource) Title() string       { return r.Unstructured.GetName() }
-func (r Resource) Description() string { return r.Unstructured.GetNamespace() }
-func (r Resource) FilterValue() string { return r.Unstructured.GetName() }
 
 type Condition struct {
 	Status             string `json:"status"`

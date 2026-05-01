@@ -8,7 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-type Dependency struct {
+type Graph struct {
 	help   help.Model
 	list   list.Model
 	keyMap OverviewKeymap
@@ -16,20 +16,20 @@ type Dependency struct {
 	resources []unstructured.Unstructured
 }
 
-var _ Tab = (*Dependency)(nil)
+var _ Tab = (*Graph)(nil)
 
 type DependencyKeymap struct {
 	Back key.Binding
 }
 
-func NewDependency(resources []unstructured.Unstructured, parent *Root) *Dependency {
+func NewGraph(resources []unstructured.Unstructured, parent *Root) *Graph {
 	l := list.New(toList(resources), list.NewDefaultDelegate(), 120, 24)
 	l.SetShowTitle(false)
 	l.SetShowStatusBar(false)
 	l.SetShowHelp(false)
 	l.SetFilteringEnabled(true)
 
-	return &Dependency{
+	return &Graph{
 		list: l,
 		help: help.New(),
 		keyMap: OverviewKeymap{
@@ -39,9 +39,9 @@ func NewDependency(resources []unstructured.Unstructured, parent *Root) *Depende
 	}
 }
 
-func (m Dependency) Init() tea.Cmd { return nil }
+func (m Graph) Init() tea.Cmd { return nil }
 
-func (m Dependency) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m Graph) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
 		switch msg.String() {
@@ -56,29 +56,29 @@ func (m Dependency) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m Dependency) View() tea.View {
+func (m Graph) View() tea.View {
 	return tea.NewView("helo")
 }
 
-func (m Dependency) Title() string {
-	return "Dependencies"
+func (m Graph) Title() string {
+	return "Graph"
 }
 
-func (m Dependency) FullScreen() bool {
+func (m Graph) FullScreen() bool {
 	return false
 }
 
-func (m Dependency) Status() string {
+func (m Graph) Status() string {
 	return ""
 }
 
-func (m Dependency) ShortHelpView() string {
+func (m Graph) ShortHelpView() string {
 	return m.help.ShortHelpView([]key.Binding{
 		m.keyMap.Back,
 	})
 }
 
-func (m Dependency) Msg() string {
+func (m Graph) Msg() string {
 	return ""
 }
 
