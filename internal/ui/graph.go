@@ -75,21 +75,22 @@ type usageLink struct {
 }
 
 func renderUsageGraph(root *models.Resource) string {
-	groups := usageGroups(root)
-	if len(groups) == 0 {
+	ug := usageGroups(root)
+	if len(ug) == 0 {
 		return "No usage relationships found"
 	}
 
-	var targets []string
-	for target := range groups {
-		targets = append(targets, target)
+	var usages []string
+	for target := range ug {
+		usages = append(usages, target)
 	}
-	sort.Strings(targets)
+
+	sort.Strings(usages)
 
 	var b strings.Builder
 
-	for _, target := range targets {
-		links := groups[target]
+	for _, target := range usages {
+		links := ug[target]
 		sort.Slice(links, func(i, j int) bool {
 			if links[i].By == links[j].By {
 				return links[i].Via < links[j].Via
@@ -104,11 +105,10 @@ func renderUsageGraph(root *models.Resource) string {
 				connector = "└─"
 			}
 			fmt.Fprintf(&b, "  %s %s\n", connector, link.By)
-			fmt.Fprintf(&b, "     via %s\n", link.Via)
 		}
 		b.WriteString("\n")
 	}
-
+	
 	return strings.TrimRight(b.String(), "\n")
 }
 
