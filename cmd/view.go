@@ -155,9 +155,6 @@ func (c *Cmd) watchResourceTree(
 
 // runs the watchProducer loop for a resource and sends updates to bubbletea tui
 func (c *Cmd) watchProducer(ctx context.Context, kClient k8s.Client, root *models.Resource, prog *tea.Program, w watch.Interface) {
-	ticker := time.NewTicker(10 * time.Second)
-	defer ticker.Stop()
-
 	if err := update(ctx, root, kClient, prog); err != nil {
 		c.handleProducerError(prog, err)
 
@@ -166,6 +163,21 @@ func (c *Cmd) watchProducer(ctx context.Context, kClient k8s.Client, root *model
 	prog.Send(ui.UpdateResourceMsg{
 		Resource: root,
 	})
+
+	// Build usage tree in background
+	go c.buildUsageTree(ctx, kClient, root, prog)
+
+	// If resource has many children, skip periodic polling to avoid performance issues.
+	// Only re-fetch when the root watch fires (i.e., root object itself changes).
+	largeResource := len(root.Children) > 100
+
+	var ticker *time.Ticker
+	var tickerC <-chan time.Time
+	if !largeResource {
+		ticker = time.NewTicker(25 * time.Second)
+		defer ticker.Stop()
+		tickerC = ticker.C
+	}
 
 	// watch loop
 	for {
@@ -187,7 +199,7 @@ func (c *Cmd) watchProducer(ctx context.Context, kClient k8s.Client, root *model
 				Resource: root,
 			})
 
-		case <-ticker.C:
+		case <-tickerC:
 			if err := update(ctx, root, kClient, prog); err != nil {
 				c.handleProducerError(prog, err)
 				return
@@ -369,4 +381,154 @@ func (c *Cmd) handleProducerError(prog *tea.Program, err error) {
 	}
 
 	prog.Send(ui.RootErrMsg{Err: fmt.Errorf("error getting resource: %v", err)})
+}
+
+// buildUsageTree builds an alternative tree from Usage objects already present
+// in root.Children, re-parenting resources based on usage relationships.
+func (c *Cmd) buildUsageTree(ctx context.Context, kClient k8s.Client, root *models.Resource, prog *tea.Program) {
+	// Collect Usage objects from existing children
+	var usages []unstructured.Unstructured
+	for _, child := range root.Children {
+		if child.Unstructured != nil && child.Unstructured.GetKind() == "Usage" {
+			usages = append(usages, *child.Unstructured)
+		}
+	}
+
+	if len(usages) == 0 {
+		return
+	}
+
+	// Build a map: "by" resource key -> list of "of" resource keys
+	// Usage spec.of = the resource being used (child)
+	// Usage spec.by = the resource that uses it (parent)
+	type usageEdge struct {
+		byKey string
+		ofRef corev1.ObjectReference
+	}
+
+	edges := []usageEdge{}
+
+	for _, u := range usages {
+		ofData, _, _ := unstructured.NestedMap(u.Object, "spec", "of")
+		byData, _, _ := unstructured.NestedMap(u.Object, "spec", "by")
+
+		if ofData == nil || byData == nil {
+			continue
+		}
+
+		ofAPIVersion, _ := ofData["apiVersion"].(string)
+		ofKind, _ := ofData["kind"].(string)
+		ofName, _ := ofData["resourceRef"].(map[string]any)
+		if ofName == nil {
+			// try direct name field
+			n, _ := ofData["name"].(string)
+			if n == "" {
+				continue
+			}
+			ofName = map[string]any{"name": n}
+		}
+		ofResourceName, _ := ofName["name"].(string)
+
+		byAPIVersion, _ := byData["apiVersion"].(string)
+		byKind, _ := byData["kind"].(string)
+		byResRef, _ := byData["resourceRef"].(map[string]any)
+		if byResRef == nil {
+			n, _ := byData["name"].(string)
+			if n == "" {
+				continue
+			}
+			byResRef = map[string]any{"name": n}
+		}
+		byResourceName, _ := byResRef["name"].(string)
+
+		if ofKind == "" || ofResourceName == "" || byKind == "" || byResourceName == "" {
+			continue
+		}
+
+		if ofAPIVersion == "" {
+			ofAPIVersion = "v1"
+		}
+		if byAPIVersion == "" {
+			byAPIVersion = "v1"
+		}
+
+		byKey := fmt.Sprintf("%s/%s", byKind, byResourceName)
+
+		edges = append(edges, usageEdge{
+			byKey: byKey,
+			ofRef: corev1.ObjectReference{
+				APIVersion: ofAPIVersion,
+				Kind:       ofKind,
+				Name:       ofResourceName,
+				Namespace:  root.Unstructured.GetNamespace(),
+			},
+		})
+	}
+
+	if len(edges) == 0 {
+		return
+	}
+
+	// Build a map from the existing flat children: key -> Resource
+	childMap := make(map[string]*models.Resource)
+	for i := range root.Children {
+		c := &root.Children[i]
+		if c.Ref != nil {
+			key := fmt.Sprintf("%s/%s", c.Ref.Kind, c.Ref.Name)
+			childMap[key] = c
+		}
+	}
+
+	// Build adjacency: parent key -> children
+	parentToChildren := make(map[string][]corev1.ObjectReference)
+	childKeys := make(map[string]bool) // track which resources are children of someone
+
+	for _, e := range edges {
+		parentToChildren[e.byKey] = append(parentToChildren[e.byKey], e.ofRef)
+		ofKey := fmt.Sprintf("%s/%s", e.ofRef.Kind, e.ofRef.Name)
+		childKeys[ofKey] = true
+	}
+
+	// Build new tree: root children are those not used by anyone else
+	var usageChildren []models.Resource
+	for i := range root.Children {
+		c := root.Children[i]
+		if c.Ref == nil {
+			continue
+		}
+		// Skip Usage resources themselves — they're only used to derive the tree structure
+		if c.Ref.Kind == "Usage" {
+			continue
+		}
+		key := fmt.Sprintf("%s/%s", c.Ref.Kind, c.Ref.Name)
+		if childKeys[key] {
+			continue // this resource is nested under a parent
+		}
+
+		// Attach usage-based children
+		if refs, ok := parentToChildren[key]; ok {
+			for _, ref := range refs {
+				refCopy := ref
+				ofKey := fmt.Sprintf("%s/%s", ref.Kind, ref.Name)
+				if existing, ok := childMap[ofKey]; ok {
+					child := *existing
+					child.Expanded = true
+					c.Children = append(c.Children, child)
+				} else {
+					c.Children = append(c.Children, *models.NewResource(nil, nil, &refCopy))
+				}
+			}
+			c.Expanded = true
+		}
+
+		usageChildren = append(usageChildren, c)
+	}
+
+	usageRoot := *root
+	usageRoot.Children = usageChildren
+	usageRoot.Expanded = true
+
+	prog.Send(ui.UpdateUsageTreeMsg{
+		Resource: &usageRoot,
+	})
 }
