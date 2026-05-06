@@ -13,7 +13,6 @@ import (
 
 type Client interface {
 	GetUnstructured(ctx context.Context, ref *v1.ObjectReference) (*unstructured.Unstructured, error)
-	ListUsages(ctx context.Context, namespace string) ([]unstructured.Unstructured, error)
 }
 
 type K8sClient struct {
@@ -45,27 +44,6 @@ func (c K8sClient) GetUnstructured(ctx context.Context, root *v1.ObjectReference
 	return result, err
 }
 
-// ListUsages lists all Crossplane Usage objects in the given namespace (or cluster-wide if namespace is empty).
-func (c K8sClient) ListUsages(ctx context.Context, namespace string) ([]unstructured.Unstructured, error) {
-	usageList := &unstructured.UnstructuredList{}
-	usageList.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "apiextensions.crossplane.io",
-		Version: "v1alpha1",
-		Kind:    "UsageList",
-	})
-
-	opts := []client.ListOption{}
-	if namespace != "" {
-		opts = append(opts, client.InNamespace(namespace))
-	}
-
-	if err := c.Client.List(ctx, usageList, opts...); err != nil {
-		return nil, err
-	}
-
-	return usageList.Items, nil
-}
-
 type MockClient struct{}
 
 func NewMockClient() *MockClient {
@@ -84,6 +62,23 @@ func (c MockClient) GetUnstructured(ctx context.Context, r *v1.ObjectReference) 
 		return mockApplication(), nil
 	case mockConfigMapKind:
 		return mockConfigMap(), nil
+	case mockRoleAssignmentKind:
+		return mockRoleAssignment(), nil
+	case mockUsageKind:
+		switch r.Name {
+		case "roleassignment-uses-providerconfig":
+			return mockUsageRoleAssignmentUsesProviderConfig(), nil
+		case "identity-uses-providerconfig":
+			return mockUsageIdentityUsesProviderConfig(), nil
+		}
+		return mockUsage(), nil
+	case mockUserAssignedIdentityKind:
+		return mockUserAssignedIdentity(), nil
+	case mockProviderConfigKind:
+		if r.Name == "example" {
+			return mockProviderConfig(), nil
+		}
+		return mockProviderConfig2(), nil
 	default:
 		return nil, fmt.Errorf("kind '%s' is not implemented in mock client: %w", r.Kind, apierrors.NewNotFound(
 			schema.GroupResource{
@@ -93,8 +88,4 @@ func (c MockClient) GetUnstructured(ctx context.Context, r *v1.ObjectReference) 
 			r.Name,
 		))
 	}
-}
-
-func (c MockClient) ListUsages(ctx context.Context, namespace string) ([]unstructured.Unstructured, error) {
-	return nil, nil
 }

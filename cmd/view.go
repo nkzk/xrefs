@@ -155,9 +155,6 @@ func (c *Cmd) watchResourceTree(
 
 // runs the watchProducer loop for a resource and sends updates to bubbletea tui
 func (c *Cmd) watchProducer(ctx context.Context, kClient k8s.Client, root *models.Resource, prog *tea.Program, w watch.Interface) {
-	ticker := time.NewTicker(10 * time.Second)
-	defer ticker.Stop()
-
 	if err := update(ctx, root, kClient, prog); err != nil {
 		c.handleProducerError(prog, err)
 
@@ -169,6 +166,18 @@ func (c *Cmd) watchProducer(ctx context.Context, kClient k8s.Client, root *model
 
 	// Build usage tree in background
 	go c.buildUsageTree(ctx, kClient, root, prog)
+
+	// If resource has many children, skip periodic polling to avoid performance issues.
+	// Only re-fetch when the root watch fires (i.e., root object itself changes).
+	largeResource := len(root.Children) > 100
+
+	var ticker *time.Ticker
+	var tickerC <-chan time.Time
+	if !largeResource {
+		ticker = time.NewTicker(25 * time.Second)
+		defer ticker.Stop()
+		tickerC = ticker.C
+	}
 
 	// watch loop
 	for {
@@ -190,7 +199,7 @@ func (c *Cmd) watchProducer(ctx context.Context, kClient k8s.Client, root *model
 				Resource: root,
 			})
 
-		case <-ticker.C:
+		case <-tickerC:
 			if err := update(ctx, root, kClient, prog); err != nil {
 				c.handleProducerError(prog, err)
 				return
@@ -374,12 +383,19 @@ func (c *Cmd) handleProducerError(prog *tea.Program, err error) {
 	prog.Send(ui.RootErrMsg{Err: fmt.Errorf("error getting resource: %v", err)})
 }
 
-// buildUsageTree fetches Crossplane Usage objects and builds an alternative tree
-// where resources are nested based on usage relationships (if A uses B, B is a child of A).
+// buildUsageTree builds an alternative tree from Usage objects already present
+// in root.Children, re-parenting resources based on usage relationships.
 func (c *Cmd) buildUsageTree(ctx context.Context, kClient k8s.Client, root *models.Resource, prog *tea.Program) {
-	usages, err := kClient.ListUsages(ctx, root.Unstructured.GetNamespace())
-	if err != nil || len(usages) == 0 {
-		return // no usages available, usage sort won't be available
+	// Collect Usage objects from existing children
+	var usages []unstructured.Unstructured
+	for _, child := range root.Children {
+		if child.Unstructured != nil && child.Unstructured.GetKind() == "Usage" {
+			usages = append(usages, *child.Unstructured)
+		}
+	}
+
+	if len(usages) == 0 {
+		return
 	}
 
 	// Build a map: "by" resource key -> list of "of" resource keys
@@ -436,7 +452,7 @@ func (c *Cmd) buildUsageTree(ctx context.Context, kClient k8s.Client, root *mode
 			byAPIVersion = "v1"
 		}
 
-		byKey := fmt.Sprintf("%s/%s/%s", byAPIVersion, byKind, byResourceName)
+		byKey := fmt.Sprintf("%s/%s", byKind, byResourceName)
 
 		edges = append(edges, usageEdge{
 			byKey: byKey,
@@ -458,7 +474,7 @@ func (c *Cmd) buildUsageTree(ctx context.Context, kClient k8s.Client, root *mode
 	for i := range root.Children {
 		c := &root.Children[i]
 		if c.Ref != nil {
-			key := fmt.Sprintf("%s/%s/%s", c.Ref.APIVersion, c.Ref.Kind, c.Ref.Name)
+			key := fmt.Sprintf("%s/%s", c.Ref.Kind, c.Ref.Name)
 			childMap[key] = c
 		}
 	}
@@ -469,7 +485,7 @@ func (c *Cmd) buildUsageTree(ctx context.Context, kClient k8s.Client, root *mode
 
 	for _, e := range edges {
 		parentToChildren[e.byKey] = append(parentToChildren[e.byKey], e.ofRef)
-		ofKey := fmt.Sprintf("%s/%s/%s", e.ofRef.APIVersion, e.ofRef.Kind, e.ofRef.Name)
+		ofKey := fmt.Sprintf("%s/%s", e.ofRef.Kind, e.ofRef.Name)
 		childKeys[ofKey] = true
 	}
 
@@ -480,7 +496,11 @@ func (c *Cmd) buildUsageTree(ctx context.Context, kClient k8s.Client, root *mode
 		if c.Ref == nil {
 			continue
 		}
-		key := fmt.Sprintf("%s/%s/%s", c.Ref.APIVersion, c.Ref.Kind, c.Ref.Name)
+		// Skip Usage resources themselves — they're only used to derive the tree structure
+		if c.Ref.Kind == "Usage" {
+			continue
+		}
+		key := fmt.Sprintf("%s/%s", c.Ref.Kind, c.Ref.Name)
 		if childKeys[key] {
 			continue // this resource is nested under a parent
 		}
@@ -489,7 +509,7 @@ func (c *Cmd) buildUsageTree(ctx context.Context, kClient k8s.Client, root *mode
 		if refs, ok := parentToChildren[key]; ok {
 			for _, ref := range refs {
 				refCopy := ref
-				ofKey := fmt.Sprintf("%s/%s/%s", ref.APIVersion, ref.Kind, ref.Name)
+				ofKey := fmt.Sprintf("%s/%s", ref.Kind, ref.Name)
 				if existing, ok := childMap[ofKey]; ok {
 					child := *existing
 					child.Expanded = true

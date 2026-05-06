@@ -66,6 +66,10 @@ type (
 		Resource *models.Resource
 	}
 
+	restoreCursorMsg struct {
+		index int
+	}
+
 	QuitMsg    struct{}
 	RootErrMsg struct {
 		Err error
@@ -78,6 +82,10 @@ func (m Model) Init() tea.Cmd { return nil }
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 
+	case restoreCursorMsg:
+		m.list.Select(msg.index)
+		return m, nil
+
 	case UpdateUsageTreeMsg:
 		m.usageRoot = msg.Resource
 		if m.sort == UsageSort {
@@ -86,8 +94,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case SortMsg:
+		if msg.Type == UsageSort && m.usageRoot == nil {
+			return m, nil // no usage tree available, ignore
+		}
 		m.sort = msg.Type
-		if msg.Type == UsageSort && m.usageRoot != nil {
+		if msg.Type == UsageSort {
 			return m, m.list.SetItems(flatten(*m.usageRoot, 0))
 		}
 		return m, m.list.SetItems(flatten(*m.root, 0))
@@ -130,10 +141,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if !m.showViewport {
 				selected, ok := m.list.SelectedItem().(models.Resource)
 				if ok {
-					node := findResourceByID(m.root, selected.ID)
+					tree := m.root
+					if m.sort == UsageSort && m.usageRoot != nil {
+						tree = m.usageRoot
+					}
+					node := findResourceByID(tree, selected.ID)
 					if node != nil && len(node.Children) > 0 {
 						node.Expanded = !node.Expanded
-						cmd := m.list.SetItems(flatten(*m.root, 0))
+						cmd := m.list.SetItems(flatten(*tree, 0))
 						if node.Expanded && !node.ChildrenLoaded {
 							return m, tea.Batch(cmd, func() tea.Msg {
 								return ExpandNodeMsg{Resource: node}
@@ -144,10 +159,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case "u":
+			curIdx := m.list.Index()
 			if m.sort == UsageSort {
-				return m, func() tea.Msg { return SortMsg{Type: DefaultSort} }
+				return m, tea.Batch(
+					func() tea.Msg { return SortMsg{Type: DefaultSort} },
+					func() tea.Msg { return restoreCursorMsg{index: curIdx} },
+				)
 			}
-			return m, func() tea.Msg { return SortMsg{Type: UsageSort} }
+			return m, tea.Batch(
+				func() tea.Msg { return SortMsg{Type: UsageSort} },
+				func() tea.Msg { return restoreCursorMsg{index: curIdx} },
+			)
 		}
 
 	case tea.WindowSizeMsg:
@@ -189,10 +211,13 @@ func (m Model) View() tea.View {
 	if !m.rootUpdatedAt.IsZero() {
 		status = fmt.Sprintf("last update: %s", m.rootUpdatedAt.Format("15:04:05"))
 	}
+	if m.sort == UsageSort {
+		status = "usage view (static snapshot)"
+	}
 
 	footer := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#6f6f6f")).
-		Render("↑/↓ navigate • y inspect • ctrl+c quit • " + status)
+		Render("↑/↓ navigate • y inspect • u toggle usage • ctrl+c quit • " + status)
 
 	body := strings.Join([]string{
 		columns,
