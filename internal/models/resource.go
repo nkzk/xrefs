@@ -44,7 +44,12 @@ func NewResource(
 
 func (r Resource) Title() string       { return r.Unstructured.GetName() }
 func (r Resource) Description() string { return r.Unstructured.GetNamespace() }
-func (r Resource) FilterValue() string { return r.Unstructured.GetName() }
+func (r Resource) FilterValue() string {
+	if r.Unstructured == nil {
+		return ""
+	}
+	return r.Unstructured.GetKind() + " " + r.Unstructured.GetName()
+}
 
 type Condition struct {
 	Status             string `json:"status"`
