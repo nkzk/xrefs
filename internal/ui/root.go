@@ -12,13 +12,22 @@ import (
 	"github.com/nkzk/xrefs/internal/models"
 )
 
+type Sort string
+
+const (
+	DefaultSort Sort = "default"
+	UsageSort   Sort = "usage"
+)
+
 type Model struct {
 	list list.Model
 
+	sort              Sort
 	resourceViewModel resourceViewModel
 	showViewport      bool
 
 	root          *models.Resource
+	usageRoot     *models.Resource // pre-built usage-sorted tree
 	rootUpdatedAt time.Time
 }
 
@@ -41,11 +50,19 @@ func NewModel(root *models.Resource) *Model {
 var docStyle = lipgloss.NewStyle().Margin(1, 2)
 
 type (
+	SortMsg struct {
+		Type Sort
+	}
+
 	UpdateResourceMsg struct {
 		Resource *models.Resource
 	}
 
 	ExpandNodeMsg struct {
+		Resource *models.Resource
+	}
+
+	UpdateUsageTreeMsg struct {
 		Resource *models.Resource
 	}
 
@@ -61,9 +78,26 @@ func (m Model) Init() tea.Cmd { return nil }
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 
+	case UpdateUsageTreeMsg:
+		m.usageRoot = msg.Resource
+		if m.sort == UsageSort {
+			return m, m.list.SetItems(flatten(*m.usageRoot, 0))
+		}
+		return m, nil
+
+	case SortMsg:
+		m.sort = msg.Type
+		if msg.Type == UsageSort && m.usageRoot != nil {
+			return m, m.list.SetItems(flatten(*m.usageRoot, 0))
+		}
+		return m, m.list.SetItems(flatten(*m.root, 0))
+
 	case UpdateResourceMsg:
 		m.root = msg.Resource
 		m.rootUpdatedAt = time.Now()
+		if m.sort == UsageSort && m.usageRoot != nil {
+			return m, nil // don't refresh list, we're showing usage tree
+		}
 		return m, m.list.SetItems(flatten(*msg.Resource, 0))
 	case tea.KeyPressMsg:
 		if m.list.FilterState() == list.Filtering {
@@ -109,6 +143,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 			}
+		case "u":
+			if m.sort == UsageSort {
+				return m, func() tea.Msg { return SortMsg{Type: DefaultSort} }
+			}
+			return m, func() tea.Msg { return SortMsg{Type: UsageSort} }
 		}
 
 	case tea.WindowSizeMsg:
