@@ -84,6 +84,7 @@ func (c *Cmd) runMock(ctx context.Context, k *kong.Context) error {
 		rootRef,
 	)
 	rootResource.Expanded = true
+	rootResource.HasResourceRefs = true
 
 	return c.watchResourceTree(ctx, k, kClient, watcher, rootResource)
 }
@@ -128,6 +129,7 @@ func (c *Cmd) runKubernetes(ctx context.Context, k *kong.Context) error {
 		resourceObjectRef,
 	)
 	rootResource.Expanded = true
+	rootResource.HasResourceRefs = true
 
 	return c.watchResourceTree(ctx, k, kClient, watcher, rootResource)
 }
@@ -255,7 +257,10 @@ func update(ctx context.Context, r *models.Resource, kClient k8s.Client, prog *t
 		return nil
 	}
 
-	r.ChildrenLoaded = true
+	// Send intermediate update so the UI can show loading count
+	if !r.ChildrenLoaded && r.HasResourceRefs && prog != nil {
+		prog.Send(ui.UpdateResourceMsg{Resource: r})
+	}
 
 	// Update children
 	for i := range r.Children {
@@ -263,6 +268,8 @@ func update(ctx context.Context, r *models.Resource, kClient k8s.Client, prog *t
 			return err
 		}
 	}
+
+	r.ChildrenLoaded = true
 
 	return nil
 }
@@ -331,6 +338,8 @@ func loadResourceChildren(root *models.Resource) {
 			root.Children = nil
 			return
 		}
+		root.ResourceRefsCount = len(resourceRefs)
+		root.HasResourceRefs = len(resourceRefs) > 0
 
 		parentNS := root.Unstructured.GetNamespace()
 

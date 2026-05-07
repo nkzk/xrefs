@@ -255,6 +255,17 @@ func (d resourceDelegate) Update(msg tea.Msg, m *list.Model) tea.Cmd {
 func (d resourceDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
 	r := item.(models.Resource)
 
+	if r.Loading {
+		prefix := r.Prefix + "└─ "
+		label := "loading..."
+		if r.ResourceRefsCount > 0 {
+			label = fmt.Sprintf("loading %d resources...", r.ResourceRefsCount)
+		}
+		row := fmt.Sprintf("%s%s", prefix, label)
+		fmt.Fprint(w, d.normal.Render(row))
+		return
+	}
+
 	ready := condStatus(r, "Ready")
 	synced := condStatus(r, "Synced")
 	reason := shorten(condReason(r), 40)
@@ -321,7 +332,20 @@ func flattenWithPrefix(r models.Resource, depth int, isLast bool, prefix string)
 		return out
 	}
 
+	if r.HasResourceRefs && !r.ChildrenLoaded {
+		loading := models.Resource{
+			Loading:           true,
+			ResourceRefsCount: r.ResourceRefsCount,
+			Depth:             depth + 1,
+			IsLast:            true,
+			Prefix:            childPrefix,
+		}
+		out = append(out, loading)
+		return out
+	}
+
 	for i, child := range r.Children {
+		child.Parent = &r
 		out = append(out, flattenWithPrefix(
 			child,
 			depth+1,
