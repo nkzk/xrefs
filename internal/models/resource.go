@@ -17,8 +17,11 @@ type Resource struct {
 	Parent   *Resource
 	Children []Resource
 
-	Expanded       bool // whether children are shown in the tree
-	ChildrenLoaded bool // whether children have been fetched from the API
+	Expanded          bool // whether children are shown in the tree
+	ChildrenLoaded    bool // whether children have been fetched from the API
+	HasResourceRefs   bool // whether the resource has resourceRefs in its spec
+	ResourceRefsCount int  // number of resourceRefs in the spec
+	Loading           bool // placeholder item indicating children are loading
 
 	Depth  int
 	IsLast bool
@@ -48,7 +51,11 @@ func (r Resource) FilterValue() string {
 	if r.Unstructured == nil {
 		return ""
 	}
-	return r.Unstructured.GetKind() + " " + r.Unstructured.GetName()
+	val := r.Unstructured.GetKind() + " " + r.Unstructured.GetName()
+	if r.Parent != nil && r.Parent.Unstructured != nil {
+		val += " " + r.Parent.Unstructured.GetKind() + " " + r.Parent.Unstructured.GetName()
+	}
+	return val
 }
 
 type Condition struct {
