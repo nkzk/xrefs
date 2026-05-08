@@ -498,6 +498,38 @@ func (c *Cmd) buildUsageTree(ctx context.Context, kClient k8s.Client, root *mode
 		childKeys[ofKey] = true
 	}
 
+	// Recursively build a subtree for a given resource key
+	visited := make(map[string]bool) // prevent cycles
+	var buildSubtree func(key string) []models.Resource
+	buildSubtree = func(key string) []models.Resource {
+		refs, ok := parentToChildren[key]
+		if !ok {
+			return nil
+		}
+		var children []models.Resource
+		for _, ref := range refs {
+			refCopy := ref
+			ofKey := fmt.Sprintf("%s/%s", ref.Kind, ref.Name)
+			var child models.Resource
+			if existing, ok := childMap[ofKey]; ok {
+				child = *existing
+			} else {
+				child = *models.NewResource(nil, nil, &refCopy)
+			}
+			// Recursively attach grandchildren (with cycle detection)
+			if !visited[ofKey] {
+				visited[ofKey] = true
+				child.Children = buildSubtree(ofKey)
+				visited[ofKey] = false
+			}
+			if len(child.Children) > 0 {
+				child.Expanded = true
+			}
+			children = append(children, child)
+		}
+		return children
+	}
+
 	// Build new tree: root children are those not used by anyone else
 	var usageChildren []models.Resource
 	for i := range root.Children {
@@ -514,19 +546,11 @@ func (c *Cmd) buildUsageTree(ctx context.Context, kClient k8s.Client, root *mode
 			continue // this resource is nested under a parent
 		}
 
-		// Attach usage-based children
-		if refs, ok := parentToChildren[key]; ok {
-			for _, ref := range refs {
-				refCopy := ref
-				ofKey := fmt.Sprintf("%s/%s", ref.Kind, ref.Name)
-				if existing, ok := childMap[ofKey]; ok {
-					child := *existing
-					child.Expanded = true
-					c.Children = append(c.Children, child)
-				} else {
-					c.Children = append(c.Children, *models.NewResource(nil, nil, &refCopy))
-				}
-			}
+		// Recursively attach usage-based children
+		visited[key] = true
+		c.Children = buildSubtree(key)
+		visited[key] = false
+		if len(c.Children) > 0 {
 			c.Expanded = true
 		}
 
