@@ -40,6 +40,7 @@ func (c K8sClient) GetUnstructured(ctx context.Context, root *v1.ObjectReference
 	// set name/namespace even if err, so the object is usable
 	result.SetName(root.Name)
 	result.SetNamespace(root.Namespace)
+	result.SetManagedFields(nil)
 
 	return result, err
 }
