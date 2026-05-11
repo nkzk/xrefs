@@ -30,8 +30,8 @@ plugins:
     - $NAMESPACE
     - --context
     - $CONTEXT
-	- --kube-config
-	- $KUBECONFIG
+    - --kube-config
+    - $KUBECONFIG
     background: false
     `, pluginKey, shortCut, command)
 
@@ -126,6 +126,7 @@ func appendPlugin(doc []byte, key, shortcut, cmd, desc string, background bool, 
 			"$RESOURCE_NAME.$RESOURCE_VERSION.$RESOURCE_GROUP/$NAME",
 			"-n", "$NAMESPACE",
 			"--context", "$CONTEXT",
+			"--kube-config", "$KUBECONFIG",
 		},
 	}
 
