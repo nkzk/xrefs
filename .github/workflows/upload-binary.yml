@@ -1,0 +1,35 @@
+name: Upload binary
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: true
+
+      - name: Build binary
+        run: |
+          mkdir -p dist
+          BIN_NAME=$(basename "$PWD")
+          go build -o "dist/${BIN_NAME}" .
+          echo "BIN_NAME=${BIN_NAME}" >> "$GITHUB_ENV"
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name }}
+          files: dist/${{ env.BIN_NAME }}
