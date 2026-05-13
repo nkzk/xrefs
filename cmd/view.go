@@ -288,10 +288,8 @@ func loadResourceChildren(root *models.Resource) {
 	var newChildren []models.Resource
 
 	switch root.Unstructured.GroupVersionKind() {
-	case schema.GroupVersionKind{
-		Group:   "kustomize.toolkit.fluxcd.io",
-		Version: "v1",
-		Kind:    "Kustomization"}:
+	case schema.GroupVersionKind{Group: "kustomize.toolkit.fluxcd.io", Version: "v1", Kind: "Kustomization"},
+		schema.GroupVersionKind{Group: "helm.toolkit.fluxcd.io", Version: "v2", Kind: "HelmRelease"}:
 		entries, ok, err := unstructured.NestedSlice(root.Unstructured.Object, "status", "inventory", "entries")
 		if err != nil || !ok {
 			root.Children = nil
