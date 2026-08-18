@@ -330,12 +330,21 @@ func loadResourceChildren(root *models.Resource) {
 		}
 	default:
 		// assume crossplane XR
-
 		resourceRefs, ok, err := unstructured.NestedSlice(root.Unstructured.Object, "spec", "crossplane", "resourceRefs")
-		if err != nil || !ok {
+		if err != nil {
 			root.Children = nil
 			return
 		}
+
+		// assume crossplane v1
+		if !ok {
+			resourceRefs, ok, err = unstructured.NestedSlice(root.Unstructured.Object, "spec", "resourceRefs")
+			if err != nil || !ok {
+				root.Children = nil
+				return
+			}
+		}
+
 		root.ResourceRefsCount = len(resourceRefs)
 		root.HasResourceRefs = len(resourceRefs) > 0
 
